@@ -18,7 +18,7 @@ public class Scheduler {
     /**
      * Retrieve the next fire event for a firefighter drone to extinguish
      */
-    public synchronized void getNextFireEvent() {
+    public synchronized FireEvent getNextFireEvent() {
         while(incompleteEvents.isEmpty()){
             try {
                 wait();
@@ -26,6 +26,7 @@ public class Scheduler {
                 e.printStackTrace();
             }
         }
+        return incompleteEvents.remove();
     }
 
     /**

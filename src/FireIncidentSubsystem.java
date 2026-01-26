@@ -43,6 +43,8 @@ public class FireIncidentSubsystem implements Runnable {
 
     @Override
     public void run() {
+        loadCSV(filePath);
+        System.out.println("Finished reading CSV file");
 
     }
 }
