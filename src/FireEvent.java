@@ -29,4 +29,17 @@ public class FireEvent {
         this.severity = severity;
     }
 
+    public String getTime() {
+        return time;
+    }
+    public int getZoneID() {
+        return zoneID;
+    }
+    public Type getType() {
+        return type;
+    }
+    public Severity getSeverity() {
+        return severity;
+    }
+
 }
