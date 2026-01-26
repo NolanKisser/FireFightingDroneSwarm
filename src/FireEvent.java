@@ -41,5 +41,8 @@ public class FireEvent {
     public Severity getSeverity() {
         return severity;
     }
+    public String toString() {
+        return "Fire Event {" + time + ", " + zoneID + ", " + type + ", " + severity + "}";
+    }
 
 }
