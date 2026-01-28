@@ -45,6 +45,11 @@ public class Scheduler {
         return incompleteEvents.remove();
     }
 
+    public synchronized void updateAllEventsDone() {
+        allEventsDone = true;
+        notifyAll();
+    }
+
     /**
      * Completed fire event gets added to the completeEvents list
      * @param fireEvent
@@ -52,6 +57,24 @@ public class Scheduler {
     public synchronized void completeFireEvent(FireEvent fireEvent) {
         completeEvents.add(fireEvent);
         notifyAll();
+    }
+
+    /**
+     * Retrieving completed fire event
+     * @return the next completed fire event or null if simulation is complete
+     */
+    public synchronized FireEvent getCompletedEvent() {
+        while(completeEvents.isEmpty() && !(allEventsDone && incompleteEvents.isEmpty())) {
+            try {
+                wait();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        if(completeEvents.isEmpty() && allEventsDone && incompleteEvents.isEmpty()) {
+            return null;
+        }
+        return completeEvents.remove();
     }
 
 
