@@ -18,9 +18,9 @@ public class FireEvent {
      * The different severity of the event
      */
     public enum Severity {
-        LOW,
-        MODERATE,
-        HIGH
+        Low,
+        Moderate,
+        High
     }
 
     private final String time;

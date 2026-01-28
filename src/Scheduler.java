@@ -1,3 +1,5 @@
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.util.*;
 
 /**
@@ -14,6 +16,11 @@ public class Scheduler {
 
     private boolean allEventsDone = false;
 
+    private final Map<Integer, Zone> zones = new HashMap<>();
+
+    public Scheduler(String zoneFilePath) {
+        loadZonesCSV(zoneFilePath);
+    }
     /**
      * Adds a new fire event from the CSV file to the incomplete events list
      * @param fireEvent event to add
@@ -76,6 +83,48 @@ public class Scheduler {
         }
         return completeEvents.remove();
     }
+
+    /**
+     * Zone ID,Zone Start,Zone End
+     * 1,(0;0),(700;600)
+     * 2,(0;600),(650;1500)
+     * @param zoneFilePath
+     */
+    private void loadZonesCSV(String zoneFilePath) {
+        String line;
+
+        try (BufferedReader br = new BufferedReader(new FileReader(zoneFilePath))) {
+            while ((line = br.readLine()) != null) {
+                String[] row = line.split(",");
+
+                int zoneID = Integer.parseInt(row[0].trim());
+
+                String[] startCoords = row[1].replace("(", "").replace(")", "").split(";");
+                int x1 = Integer.parseInt(startCoords[0].trim());
+                int y1 = Integer.parseInt(startCoords[1].trim());
+
+                String[] endCoords = row[2].replace("(", "").replace(")", "").split(";");
+                int x2 = Integer.parseInt(endCoords[0].trim());
+                int y2 = Integer.parseInt(endCoords[1].trim());
+
+                zones.put(zoneID, new Zone(zoneID, x1, y1, x2, y2));
+
+
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        System.out.println("Finished reading CSV zone file");
+        zones.forEach((zoneID, zone) -> System.out.println("zone " + zoneID + " :" + zone));
+
+    }
+
+    public Map<Integer, Zone> getZones() {
+        return zones;
+    }
+
+
 
 
 

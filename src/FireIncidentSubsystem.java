@@ -45,6 +45,8 @@ public class FireIncidentSubsystem implements Runnable {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        System.out.println("Finished reading CSV event file");
+
     }
 
     /**
@@ -54,7 +56,6 @@ public class FireIncidentSubsystem implements Runnable {
     @Override
     public void run() {
         loadCSV(filePath);
-        System.out.println("Finished reading CSV file");
 
         scheduler.updateAllEventsDone();
 
