@@ -30,6 +30,13 @@ public class Zone {
         return y2;
     }
 
+    public double getCenterX() {
+        return x1 + x2 / 2;
+    }
+    public double getCenterY() {
+        return y1 + y2 / 2;
+    }
+
     @Override
     public String toString() {
         return "Zone {" + zoneID + ", start: " + x1 + "," + y1 + ", end: " + x2 + "," + y2 + "}";

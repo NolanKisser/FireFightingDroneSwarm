@@ -115,8 +115,8 @@ public class Scheduler {
             e.printStackTrace();
         }
 
-        System.out.println("Finished reading CSV zone file");
-        zones.forEach((zoneID, zone) -> System.out.println("zone " + zoneID + " :" + zone));
+        // zones.forEach((zoneID, zone) -> System.out.println("zone " + zoneID + " :" + zone));
+        // System.out.println("Finished reading CSV zone file");
 
     }
 
