@@ -31,10 +31,10 @@ public class Zone {
     }
 
     public double getCenterX() {
-        return x1 + x2 / 2;
+        return (x1 + x2) / 2;
     }
     public double getCenterY() {
-        return y1 + y2 / 2;
+        return (y1 + y2) / 2;
     }
 
     @Override
