@@ -1,3 +1,5 @@
+package core;
+
 /**
  * FireEvent class represents a fire event as a Java object passed between the FireIncidentSubsystem,
  * DroneSubsystem, and Scheduler to avoid passing text strings.

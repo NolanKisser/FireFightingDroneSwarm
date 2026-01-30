@@ -1,5 +1,4 @@
-import java.io.BufferedReader;
-import java.io.FileReader;
+package core;
 
 /**
  * DroneSubsystem class represents a single firefighter drone.
