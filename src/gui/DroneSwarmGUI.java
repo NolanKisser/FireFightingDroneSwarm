@@ -8,9 +8,11 @@ import java.util.Date;
 import java.text.SimpleDateFormat;
 
 /**
- * SYSC 3303A Firefighting Drone Swarm - Iteration 1 GUI
- * Provides the required structural framework using the Swing library.
+ * DroneSwarmGUI class represents User Interface for the Firefighting Drone Swarm.
+ * @author Jordan Grewal, Ozan Kaya, Nolan Kisser, Celina Yang
+ * @version January 31, 2026
  */
+
 public class DroneSwarmGUI extends JFrame {
     private JTextArea eventLog;
     private SimpleDateFormat timeFormat;
@@ -46,7 +48,7 @@ public class DroneSwarmGUI extends JFrame {
         mapContainer.add(mapPlaceholder, BorderLayout.CENTER);
         this.add(mapContainer, BorderLayout.CENTER);
 
-        // 3. Bottom: Event Console (Crucial for Iteration 1 testing)
+        // 3. Bottom: Event Console
         eventLog = new JTextArea(12, 50);
         eventLog.setEditable(false);
         eventLog.setBackground(new Color(30, 30, 30));
