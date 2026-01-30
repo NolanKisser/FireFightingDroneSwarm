@@ -1,7 +1,3 @@
-package gui;
-
-import core.Scheduler;
-
 import javax.swing.*;
 import java.awt.*;
 import java.util.Date;
@@ -13,13 +9,13 @@ import java.text.SimpleDateFormat;
  * @version January 31, 2026
  */
 
-public class DroneSwarmGUI extends JFrame {
+public class DroneSwarmMonitor extends JFrame {
     private JTextArea eventLog;
     private SimpleDateFormat timeFormat;
     private ZoneMap mapPanel;
     private JPanel mapContainer;
 
-    public DroneSwarmGUI() {
+    public DroneSwarmMonitor() {
         super("SYSC 3303A: Firefighting Drone Swarm Monitor");
         this.timeFormat = new SimpleDateFormat("HH:mm:ss.SSS");
         setupUI();
@@ -27,7 +23,7 @@ public class DroneSwarmGUI extends JFrame {
 
     private void setupUI() {
         this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        this.setSize(900, 600);
+        this.setSize(1200, 720);
         this.setLayout(new BorderLayout(5, 5));
 
         // 1. Header with System Information
@@ -41,11 +37,9 @@ public class DroneSwarmGUI extends JFrame {
 
         // 2. Center: Map container
         mapContainer = new JPanel(new BorderLayout());
-        JPanel mapPlaceholder = new JPanel();
-        mapPlaceholder.setBackground(Color.WHITE);
-        mapPlaceholder.setBorder(BorderFactory.createTitledBorder("Live Mission Map (Grid View)"));
-        mapPlaceholder.add(new JLabel("Grid visualization will be fully implemented in Iteration 2+"));
-        mapContainer.add(mapPlaceholder, BorderLayout.CENTER);
+        mapContainer.setBorder(BorderFactory.createTitledBorder("Live Mission Map (Grid View)"));
+        mapPanel = new ZoneMap();
+        mapContainer.add(mapPanel, BorderLayout.CENTER);
         this.add(mapContainer, BorderLayout.CENTER);
 
         // 3. Bottom: Event Console
@@ -79,12 +73,4 @@ public class DroneSwarmGUI extends JFrame {
             eventLog.setCaretPosition(eventLog.getDocument().getLength());
         });
     }
-    public void setMap(Scheduler scheduler){
-        mapPanel = new ZoneMap(scheduler);
-        mapContainer.removeAll();
-        mapContainer.add(mapPanel, BorderLayout.CENTER);
-        mapContainer.revalidate();
-        mapContainer.repaint();
-    }
-
 }

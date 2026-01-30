@@ -1,7 +1,3 @@
-package core;
-
-import gui.DroneSwarmGUI;
-
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.HashMap;
@@ -24,13 +20,10 @@ public class Scheduler {
     private boolean allEventsDone = false;
 
     private final Map<Integer, Zone> zones = new HashMap<>();
-    private final DroneSwarmGUI gui;
 
 
-    public Scheduler(String zoneFilePath, DroneSwarmGUI gui) {
-        this.gui = gui;
+    public Scheduler(String zoneFilePath) {
         loadZonesCSV(zoneFilePath);
-        gui.addLog("FireSubsystem -> Scheduler", "Zone configurations loaded successfully.");
     }
     /**
      * Adds a new fire event from the CSV file to the incomplete events list
@@ -38,7 +31,6 @@ public class Scheduler {
      */
     public synchronized void newFireEvent(FireEvent fireEvent) {
         incompleteEvents.add(fireEvent);
-        gui.addLog("FireSubsystem -> Scheduler", "New fire reported: Zone " + fireEvent.getZoneID());
         notifyAll();
     }
 
@@ -75,7 +67,6 @@ public class Scheduler {
      */
     public synchronized void completeFireEvent(FireEvent fireEvent) {
         completeEvents.add(fireEvent);
-        gui.addLog("Drone -> Scheduler", "CONFIRMED: Fire extinguished at Zone " + fireEvent.getZoneID());
         notifyAll();
     }
 

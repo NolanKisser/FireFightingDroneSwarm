@@ -1,5 +1,3 @@
-package core;
-
 /**
  * DroneSubsystem class represents a single firefighter drone.
  * The firefighter drone repeats the next incomplete FireEvent from the Scheduler and simulates

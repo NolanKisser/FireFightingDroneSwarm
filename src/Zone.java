@@ -1,5 +1,3 @@
-package core;
-
 public class Zone {
     private final int zoneID;
     private final double x1, y1, x2, y2;
