@@ -1,0 +1,71 @@
+# Firefighting Drone Swarm Simulation (Iteration 1)
+
+## Project Overview
+This project simulates a swarm of autonomous drones designed to detect and extinguish fires within specific zones. It utilizes a multi-threaded architecture to handle concurrent events, communication, and synchronization between fire detection systems and the drone swarm.
+
+**Current Iteration Features:**
+* **Producer-Consumer Pattern:** The `FireIncidentSubsystem` produces events, and the `DroneSubsystem` consumes them via a synchronized `Scheduler`.
+* **Concurrency:** Validates safe thread communication (wait/notify) and resource locking.
+* **Simulation Logic:** Calculates travel times and extinguishing durations based on zone coordinates and fire severity.
+
+## Authors
+* Jordan Grewal
+* Ozan Kaya
+* Nolan Kisser
+* Celina Yang
+
+## Project Structure
+
+### Source Code (`src/`)
+* **`Main.java`**: The entry point of the application. It initializes the `Scheduler`, starts the `FireIncidentSubsystem` and `DroneSubsystem` threads, and manages the simulation lifecycle.
+* **`Scheduler.java`**: Acts as the central server/monitor. It manages the queue of `FireEvent` objects, synchronizing access between the input subsystem and the drones. It also loads zone data.
+* **`FireIncidentSubsystem.java`**: The "Client" that acts as the input generator. It reads fire events from `event_file.csv` and submits them to the Scheduler.
+* **`DroneSubsystem.java`**: The "Client" that simulates a physical drone. It retrieves events from the Scheduler, calculates flight/extinguish times, and reports completion.
+* **`FireEvent.java`**: A data transfer object representing a specific event (e.g., `FIRE_DETECTED`, `DRONE_REQUEST`) including details like time, zone ID, and severity.
+* **`Zone.java`**: Represents a physical area defined by coordinates (x1, y1) to (x2, y2). Includes logic to calculate the center point for drone travel.
+
+### Data Files
+* **`event_file.csv`**: Contains the list of fire incidents to simulate.
+    * *Format:* `Time, ZoneID, Type, Severity`
+    * *Example:* `14:03:15, 1, FIRE_DETECTED, High`
+* **`zone_file.csv`**: Defines the geographical boundaries of the zones.
+    * *Format:* `ZoneID, (StartX;StartY), (EndX;EndY)`
+    * *Example:* `1, (0;0), (700;600)`
+
+## Prerequisites
+* **Java Development Kit (JDK):** Version 21 or higher.
+* **IDE:** IntelliJ IDEA (recommended) or Eclipse.
+
+## Setup & Installation
+
+### Option 1: IntelliJ IDEA (Recommended)
+1.  Open IntelliJ IDEA.
+2.  Select **File > Open** and navigate to the `FireFightingDroneSwarm` folder.
+3.  Ensure the Project SDK is set to Java 21 (File > Project Structure > Project > SDK).
+4.  Navigate to `src/Main.java`.
+5.  Right-click `Main.java` and select **Run 'Main.main()'**.
+
+### Option 2: Command Line
+1.  Navigate to the `src` directory:
+    ```bash
+    cd src
+    ```
+2.  Compile the Java files:
+    ```bash
+    javac Main.java Scheduler.java FireIncidentSubsystem.java DroneSubsystem.java FireEvent.java Zone.java
+    ```
+3.  Run the application (ensure CSV files are in the root project directory, you may need to move them to `src` or adjust paths in `Main.java` if running from CLI depending on your classpath):
+    ```bash
+    java Main
+    ```
+
+## Usage
+1.  **Configure Zones:** Edit `zone_file.csv` to define the layout of the monitored area.
+2.  **Create Scenarios:** Edit `event_file.csv` to add new fire events or requests.
+3.  **Run Simulation:** Start the program. The console will output the status of the drones as they travel to zones, extinguish fires, and return to base.
+
+## Output Example
+```text
+DroneID: 1 is enRoute to fire in zone 1. Expected travel time: 35 seconds
+DroneID: 1 is extinguishing fire in zone 1. Expected completion time: 16 seconds
+DroneID: 1 is returning from zone 1. Expected return time: 23 seconds
