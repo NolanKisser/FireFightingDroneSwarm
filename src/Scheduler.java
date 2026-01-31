@@ -18,6 +18,10 @@ public class Scheduler {
 
     private final Map<Integer, Zone> zones = new HashMap<>();
 
+    /**
+     * Constructor for Scheduler
+     * @param zoneFilePath the path to the CSV zone file path
+     */
     public Scheduler(String zoneFilePath) {
         loadZonesCSV(zoneFilePath);
     }
@@ -52,6 +56,9 @@ public class Scheduler {
         return incompleteEvents.remove();
     }
 
+    /**
+     * Update boolean when all events are complete
+     */
     public synchronized void updateAllEventsDone() {
         allEventsDone = true;
         notifyAll();
@@ -108,24 +115,17 @@ public class Scheduler {
                 int y2 = Integer.parseInt(endCoords[1].trim());
 
                 zones.put(zoneID, new Zone(zoneID, x1, y1, x2, y2));
-
-
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-
-        // zones.forEach((zoneID, zone) -> System.out.println("zone " + zoneID + " :" + zone));
-        // System.out.println("Finished reading CSV zone file");
-
     }
 
+    /**
+     * Get all zones
+     * @return the zones of all possible fire incidents
+     */
     public Map<Integer, Zone> getZones() {
         return zones;
     }
-
-
-
-
-
 }

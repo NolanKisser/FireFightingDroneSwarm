@@ -1,6 +1,3 @@
-import java.io.BufferedReader;
-import java.io.FileReader;
-
 /**
  * DroneSubsystem class represents a single firefighter drone.
  * The firefighter drone repeats the next incomplete FireEvent from the Scheduler and simulates
