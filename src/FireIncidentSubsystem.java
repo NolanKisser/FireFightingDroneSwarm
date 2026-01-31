@@ -40,13 +40,10 @@ public class FireIncidentSubsystem implements Runnable {
 
                 FireEvent event = new FireEvent(time, zoneID, type, severity);
                 scheduler.newFireEvent(event);
-                // System.out.println("Submitted new fire event: " + event);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-        // System.out.println("Finished reading CSV event file\n");
-
     }
 
     /**
