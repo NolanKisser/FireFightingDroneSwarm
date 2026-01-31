@@ -26,6 +26,46 @@ public class Zone {
     }
 
     /**
+     * Get the unique ID number of the zone
+     * @return unique ID number of the zone
+     */
+    public int getZoneID() {
+        return zoneID;
+    }
+
+    /**
+     * Get the x coordinate of start point
+     * @return x coordinate
+     */
+    public double getX1() {
+        return x1;
+    }
+
+    /**
+     * Get the y coordinate of start point
+     * @return y coordinate
+     */
+    public double getY1() {
+        return y1;
+    }
+
+    /**
+     * Get the x coordinate of end point
+     * @return x coordinate
+     */
+    public double getX2() {
+        return x2;
+    }
+
+    /**
+     * Get the y coordinate of end point
+     * @return y coordinate
+     */
+    public double getY2() {
+        return y2;
+    }
+
+    /**
      * Get the x coordinate of the center of the zone
      * @return x coordinate
      */
