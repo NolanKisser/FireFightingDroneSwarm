@@ -2,7 +2,7 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 
 /**
- * FireIncidentSubsystem class reads the fire events from the given CSV input file and sends to
+ * FireIncidentSubsystem class reads the fire events from the given CSV event file and sends to
  * the Scheduler.
  * @author Jordan Grewal, Ozan Kaya, Nolan Kisser, Celina Yang
  * @version January 31, 2026
@@ -15,7 +15,7 @@ public class FireIncidentSubsystem implements Runnable {
     /**
      * Constructor for FireIncidentSubsystem
      * @param scheduler the shared scheduler
-     * @param filePath the path to the CSV input file
+     * @param filePath the path to the CSV event file
      */
     public FireIncidentSubsystem(Scheduler scheduler, String filePath) {
         this.scheduler = scheduler;
@@ -24,7 +24,7 @@ public class FireIncidentSubsystem implements Runnable {
 
     /**
      * Loading and reading the CSV file and submits a FireEvent to Scheduler for each event (row)
-     * @param filePath the path to the CSV input file
+     * @param filePath the path to the CSV event file
      */
     private void loadCSV(String filePath) {
         String line;
@@ -40,13 +40,10 @@ public class FireIncidentSubsystem implements Runnable {
 
                 FireEvent event = new FireEvent(time, zoneID, type, severity);
                 scheduler.newFireEvent(event);
-                // System.out.println("Submitted new fire event: " + event);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-        // System.out.println("Finished reading CSV event file\n");
-
     }
 
     /**
