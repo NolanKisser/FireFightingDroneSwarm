@@ -25,22 +25,22 @@ public class ZoneMap extends JPanel {
         Graphics2D g2 = (Graphics2D) g;
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        // 1. Fixed World Bounds as per assumptions
+        //Fixed World Bounds as per assumptions
         final int WORLD_WIDTH = 3000;  // 3000 meters
         final int WORLD_HEIGHT = 1500; // 1500 meters
         final int GRID_SIZE = 100;     // 100 meters per box
         final int ZONE_WIDTH = 2000;   // 2000 meters zone area
 
-        // 2. Calculate scale to fit the panel perfectly without stretching
+        //Calculate scale to fit the panel perfectly without stretching
         double scaleX = (double) getWidth() / WORLD_WIDTH;
         double scaleY = (double) getHeight() / WORLD_HEIGHT;
         double fitScale = Math.min(scaleX, scaleY);
 
-        // 3. Center the fixed grid in the panel
+        //Center the fixed grid in the panel
         int offsetX = (int) (getWidth() - (WORLD_WIDTH * fitScale)) / 2;
         int offsetY = (int) (getHeight() - (WORLD_HEIGHT * fitScale)) / 2;
 
-        // 4. Draw the 100m Grid boxes
+        //Draw the 100m Grid boxes
         g2.setColor(new Color(230, 230, 230));
         for (int i = 0; i <= WORLD_WIDTH; i += GRID_SIZE) {
             if (i > WORLD_WIDTH - (GRID_SIZE * 6) && i < WORLD_WIDTH) {
@@ -64,7 +64,7 @@ public class ZoneMap extends JPanel {
                 (int) (WORLD_HEIGHT * fitScale)
         );
 
-        // Legend aligned to grid units: color in a normal column, text in merged area
+        // Legend aligned to grid units
         int legendCellSize = (int) (GRID_SIZE * fitScale);
         int legendStartX = offsetX + (int) ((WORLD_WIDTH - (GRID_SIZE * 7)) * fitScale);
         int legendStartY = offsetY;
@@ -129,7 +129,7 @@ public class ZoneMap extends JPanel {
         g2.drawString("D(3)", legendStartX + labelTextPad, descTextY);
         g2.drawString("Drone Returning", descX, descTextY);
 
-        // 5. Draw Zones from dummy data
+        //Draw Zones from dummy data
         for (int[] z : DUMMY_ZONES) {
             int x = offsetX + (int) (z[1] * fitScale);
             int y = offsetY + (int) (z[2] * fitScale);

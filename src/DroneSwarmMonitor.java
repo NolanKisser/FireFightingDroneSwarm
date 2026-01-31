@@ -4,7 +4,7 @@ import java.util.Date;
 import java.text.SimpleDateFormat;
 
 /**
- * DroneSwarmGUI class represents User Interface for the Firefighting Drone Swarm.
+ * DroneSwarmMonitor class represents User Interface for the Firefighting Drone Swarm.
  * @author Jordan Grewal, Ozan Kaya, Nolan Kisser, Celina Yang
  * @version January 31, 2026
  */
@@ -26,23 +26,20 @@ public class DroneSwarmMonitor extends JFrame {
         this.setSize(1200, 720);
         this.setLayout(new BorderLayout(5, 5));
 
-        // 1. Header with System Information
-        JPanel header = new JPanel(new GridLayout(1, 2));
-        header.setBorder(BorderFactory.createEtchedBorder());
-        header.add(new JLabel("  Subsystems: Active", JLabel.LEFT));
-        header.add(new JLabel("Iteration: #1 (Communication)  ", JLabel.RIGHT));
-        this.add(header, BorderLayout.NORTH);
+        //Load CSV button
+        JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JButton loadCsvBtn = new JButton("Load Incident CSV");
+        controlPanel.add(loadCsvBtn);
+        this.add(controlPanel, BorderLayout.NORTH);
 
-
-
-        // 2. Center: Map container
+        //Zone Map
         mapContainer = new JPanel(new BorderLayout());
-        mapContainer.setBorder(BorderFactory.createTitledBorder("Live Mission Map (Grid View)"));
+        mapContainer.setBorder(BorderFactory.createTitledBorder("Zone Map"));
         mapPanel = new ZoneMap();
         mapContainer.add(mapPanel, BorderLayout.CENTER);
         this.add(mapContainer, BorderLayout.CENTER);
 
-        // 3. Bottom: Event Console
+        //Event Console
         eventLog = new JTextArea(12, 50);
         eventLog.setEditable(false);
         eventLog.setBackground(new Color(30, 30, 30));
@@ -50,13 +47,9 @@ public class DroneSwarmMonitor extends JFrame {
         eventLog.setFont(new Font("Monospaced", Font.PLAIN, 12));
 
         JScrollPane scrollPane = new JScrollPane(eventLog);
-        scrollPane.setBorder(BorderFactory.createTitledBorder(null, "Subsystem Communication Log",
+        scrollPane.setBorder(BorderFactory.createTitledBorder(null, "Communication Log",
                 0, 0, null, Color.GRAY));
         this.add(scrollPane, BorderLayout.SOUTH);
-        JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JButton loadCsvBtn = new JButton("Load Incident CSV");
-        controlPanel.add(loadCsvBtn);
-        this.add(controlPanel, BorderLayout.NORTH);
         this.setVisible(true);
     }
 
