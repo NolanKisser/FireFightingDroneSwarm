@@ -9,18 +9,17 @@ public class Main {
      * @param args command line arguments
      */
     public static void main(String[] args) {
-        String csvFilePath = "event_file.csv"; // path to event CSV file
-        String zonesFilePath = "zone_file.csv"; // path to zone CSV file
-
-        // create shared scheduler and load zone data
+        String csvFilePath = "event_file.csv";
+        String zonesFilePath = "zone_file.csv";
+        DroneSwarmMonitor monitor =  new DroneSwarmMonitor();
         Scheduler scheduler = new Scheduler(zonesFilePath);
 
         // create subsystem threads for fire incident and drone
         Thread fireincidentsubsystem = new Thread(new FireIncidentSubsystem(scheduler, csvFilePath));
         Thread dronesubsystem = new Thread(new DroneSubsystem(scheduler, 1));
-
         fireincidentsubsystem.start();
         dronesubsystem.start();
+        monitor.addLog("SYSTEM", "Started");
 
     }
 }
