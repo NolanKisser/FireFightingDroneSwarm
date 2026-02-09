@@ -17,6 +17,7 @@ public class DroneSubsystem implements Runnable {
     private final Scheduler scheduler;
     private final int droneID;
     private State state;
+    private FireEvent event;
 
     // current drone location
     private double currentX = 0.0;
@@ -126,19 +127,18 @@ public class DroneSubsystem implements Runnable {
      */
     @Override
     public void run() {
-        while(true) {
-            FireEvent event = scheduler.getNextFireEvent();
-
-            // there are no more events to process
-            if (event == null) {
-                break;
-            }
-
+        boolean running = true;
+        while(running) {
             // simulating travel, extinguish, and return time
             try {
                 switch (state) {
                     case IDLE:
-                        state = State.EN_ROUTE;
+                        event = scheduler.getNextFireEvent();
+                        if (event == null) {
+                            running = false; // Simulation complete
+                        } else {
+                            state = State.EN_ROUTE; // Transition to start the job
+                        }
                         break;
 
                     case EN_ROUTE:
@@ -174,8 +174,8 @@ public class DroneSubsystem implements Runnable {
                 }
             } catch (InterruptedException e) {
                 e.printStackTrace();
+                running = false;
             }
-            scheduler.completeFireEvent(event);
         }
     }
 }
