@@ -8,9 +8,17 @@ import java.util.Queue;
 /**
  * Scheduler class communicates and synchronizes the FireIncidentSubsystem and the DroneSubsystem.
  * @author Jordan Grewal, Ozan Kaya, Nolan Kisser, Celina Yang
- * @version January 31, 2026
+ * @version February 8, 2026
  */
 public class Scheduler {
+
+    public enum State {
+        WAITING,
+        EVENT_QUEUED,
+        DRONE_ACTIVE
+    }
+
+    private State currentState = State.WAITING;
 
     // fire events to be completed
     private final Queue<FireEvent> incompleteEvents = new LinkedList<>();
@@ -31,6 +39,9 @@ public class Scheduler {
      */
     public synchronized void newFireEvent(FireEvent fireEvent) {
         incompleteEvents.add(fireEvent);
+        if (currentState == State.WAITING) {
+            currentState = State.EVENT_QUEUED;
+        }
         notifyAll();
     }
 
@@ -43,6 +54,7 @@ public class Scheduler {
 
         while(incompleteEvents.isEmpty() && !allEventsDone) {
             try {
+                currentState = State.WAITING;
                 wait();
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -53,9 +65,28 @@ public class Scheduler {
             return null;
         }
 
+        currentState = State.DRONE_ACTIVE;
         return incompleteEvents.remove();
     }
 
+    /**
+     * Notification from DroneSubsystem that it has reached the target zone.
+     * @param droneID ID of the drone
+     * @param fireEvent The event being serviced
+     */
+    public synchronized void droneArrivedAtZone(int droneID, FireEvent fireEvent) {
+        // in future iterations with multi-drone, we update specific drone status here
+        System.out.println("[Scheduler] Notification: Drone " + droneID + " arrived at Zone " + fireEvent.getZoneID());
+    }
+
+    public synchronized void droneReturnToBase(int droneID){
+        System.out.println("[Scheduler] Notification: Drone " + droneID + " returned to base.");
+        if (!incompleteEvents.isEmpty()) {
+            currentState = State.EVENT_QUEUED;
+        } else {
+            currentState = State.WAITING;
+        }
+    }
     /**
      * Update boolean when all events are complete
      */

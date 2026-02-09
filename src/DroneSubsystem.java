@@ -3,12 +3,21 @@
  * The firefighter drone repeats the next incomplete FireEvent from the Scheduler and simulates
  * extinguishing the fire then reports back to the Scheduler of completion.
  * @author Jordan Grewal, Ozan Kaya, Nolan Kisser, Celina Yang
- * @version January 31, 2026
+ * @version February 8, 2026
  */
 public class DroneSubsystem implements Runnable {
 
+
+    public enum State {
+        IDLE,
+        EN_ROUTE,
+        EXTINGUISHING,
+        RETURNING
+    }
     private final Scheduler scheduler;
     private final int droneID;
+    private State state;
+    private FireEvent event;
 
     // current drone location
     private double currentX = 0.0;
@@ -32,6 +41,7 @@ public class DroneSubsystem implements Runnable {
     public DroneSubsystem(Scheduler scheduler, int droneID) {
         this.scheduler = scheduler;
         this.droneID = droneID;
+        this.state = State.IDLE;
     }
 
     /**
@@ -117,32 +127,55 @@ public class DroneSubsystem implements Runnable {
      */
     @Override
     public void run() {
-        while(true) {
-            FireEvent event = scheduler.getNextFireEvent();
-
-            // there are no more events to process
-            if (event == null) {
-                break;
-            }
-
+        boolean running = true;
+        while(running) {
             // simulating travel, extinguish, and return time
             try {
-                System.out.println("DroneID: " + droneID + " is enRoute to fire in zone " + event.getZoneID()
-                        + ". Expected travel time: " + (int) computeEnRoute(event) + " seconds");
-                Thread.sleep(1000);
-                moveToZoneCenter(event);
-                System.out.println("DroneID: " + droneID + " is extinguishing fire in zone " + event.getZoneID()
-                        + ". Expected completion time: " + (int) computeExtinguish(event) + " seconds");
-                Thread.sleep(1000);
-                System.out.println("DroneID: " + droneID + " is returning from zone " + event.getZoneID()
-                        + ". Expected return time: " + (int) computeReturn(event) + " seconds\n");
-                Thread.sleep(1000);
-                moveToBase();
+                switch (state) {
+                    case IDLE:
+                        event = scheduler.getNextFireEvent();
+                        if (event == null) {
+                            running = false; // Simulation complete
+                        } else {
+                            state = State.EN_ROUTE; // Transition to start the job
+                        }
+                        break;
 
+                    case EN_ROUTE:
+                        double travelTime = computeEnRoute(event);
+                        System.out.println("DroneID: " + droneID + " is enRoute to fire in zone " + event.getZoneID()
+                                + ". Expected travel time: " + travelTime + " seconds");
+                        Thread.sleep(1000);
+                        moveToZoneCenter(event);
+                        scheduler.droneArrivedAtZone(droneID, event);
+                        state = State.EXTINGUISHING;
+                        break;
+
+                    case EXTINGUISHING:
+                        double extinguishTime = computeExtinguish(event);
+                        System.out.println("DroneID: " + droneID + " is extinguishing fire in zone " + event.getZoneID()
+                                + ". Expected completion time: " + extinguishTime + " seconds");
+                        Thread.sleep(1000);
+                        scheduler.completeFireEvent(event);
+                        state = State.RETURNING;
+                        break;
+
+                    case RETURNING:
+                        double returnTime = computeReturn(event);
+                        System.out.println("DroneID: " + droneID + " is returning from zone " + event.getZoneID()
+                                + ". Expected return time: " + (int) computeReturn(event) + " seconds\n");
+                        Thread.sleep(1000);
+                        moveToBase();
+
+                        scheduler.droneReturnToBase(droneID);
+                        state = State.IDLE;
+                        event = null;
+                        break;
+                }
             } catch (InterruptedException e) {
                 e.printStackTrace();
+                running = false;
             }
-            scheduler.completeFireEvent(event);
         }
     }
 }
