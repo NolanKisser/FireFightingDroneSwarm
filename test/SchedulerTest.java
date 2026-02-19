@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit;
  * Tests the core scheduling functionality, event management, and synchronization.
  *
  * @author Jordan Grewal, Ozan Kaya, Nolan Kisser, Celina Yang
- * @version January 31, 2026
+ * @version February 14, 2026
  */
 public class SchedulerTest {
 
@@ -306,5 +306,93 @@ public class SchedulerTest {
 
         assertEquals(1, completed1.getZoneID());
         assertEquals(2, completed2.getZoneID());
+    }
+
+    public void testGetNextFireEventBlockAndUnblock() throws InterruptedException {
+        FireEvent[] holder = new FireEvent[1];
+        Thread consumer = new Thread(() -> {
+            holder[0] = scheduler.getNextFireEvent();
+        });
+
+        consumer.start();
+        assertNull(holder[0]);
+
+        FireEvent event = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+        scheduler.newFireEvent(event);
+
+        consumer.join();
+        assertNotNull(holder[0]);
+        assertEquals(1, holder[0].getZoneID());
+
+
+    }
+
+    public void testCompletedEventBlocksUntilCompleted() throws InterruptedException {
+        FireEvent[] holder = new FireEvent[1];
+        Thread consumer = new Thread(() -> {
+            holder[0] = scheduler.getCompletedEvent();
+        });
+
+        consumer.start();
+        assertNull(holder[0]);
+
+        FireEvent event = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+        scheduler.newFireEvent(event);
+
+        consumer.join();
+        assertNotNull(holder[0]);
+        assertEquals(1, holder[0].getZoneID());
+
+    }
+
+    public void testNextFireEventUpdateComplete() {
+        scheduler.updateAllEventsDone();
+        assertNull(scheduler.getCompletedEvent());
+    }
+
+    public void testAllFireEventComplete() {
+        scheduler.updateAllEventsDone();
+        assertNull(scheduler.getCompletedEvent());
+    }
+
+    public void testReturnToBase() {
+        FireEvent event1 = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+        FireEvent event2 = new FireEvent("14:03:15", 1,  FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.High);
+
+        scheduler.newFireEvent(event1);
+        scheduler.newFireEvent(event2);
+
+        FireEvent first = scheduler.getNextFireEvent();
+        assertNotNull(first);
+        assertEquals(1, first.getZoneID());
+
+        scheduler.droneReturnToBase(1);
+
+        FireEvent second = scheduler.getNextFireEvent();
+        assertNotNull(second);
+        assertEquals(2, second.getZoneID());
+
+    }
+
+    public void testArriveToZone() {
+        FireEvent event = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+
+        assertDoesNotThrow(() -> {
+            scheduler.droneArrivedAtZone(1, event);
+        });
+    }
+
+    public void testFIFOStillHolds() {
+        FireEvent event1 = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Moderate);
+        FireEvent event2 = new FireEvent("14:10:15", 2, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.High);
+        FireEvent event3 = new FireEvent("14:25:00", 3, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+
+        scheduler.newFireEvent(event1);
+        scheduler.newFireEvent(event2);
+        scheduler.newFireEvent(event3);
+
+        assertEquals(1, scheduler.getNextFireEvent().getZoneID());
+        assertEquals(2, scheduler.getNextFireEvent().getZoneID());
+        assertEquals(3, scheduler.getNextFireEvent().getZoneID());
     }
 }
