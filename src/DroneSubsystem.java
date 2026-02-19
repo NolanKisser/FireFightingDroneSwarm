@@ -3,7 +3,7 @@
  * The firefighter drone repeats the next incomplete FireEvent from the Scheduler and simulates
  * extinguishing the fire then reports back to the Scheduler of completion.
  * @author Jordan Grewal, Ozan Kaya, Nolan Kisser, Celina Yang
- * @version February 8, 2026
+ * @version February 14, 2026
  */
 public class DroneSubsystem implements Runnable {
 
@@ -117,6 +117,36 @@ public class DroneSubsystem implements Runnable {
      * Update the drone's current location to base coordinates of (0,0)
      */
     private void moveToBase() {
+        currentX = 0.0;
+        currentY = 0.0;
+    }
+
+    public double getCurrentX() {
+        return currentX;
+    }
+
+    public double getCurrentY() {
+        return currentY;
+    }
+
+    public double getEnRoute(FireEvent event) {
+        return computeEnRoute(event);
+    }
+    public double getExtinguish(FireEvent event) {
+        return computeExtinguish(event);
+    }
+
+    public double getReturn(FireEvent event) {
+        return computeReturn(event);
+    }
+
+    public void toZoneCenter(FireEvent event) {
+        Zone zone = scheduler.getZones().get(event.getZoneID());
+        currentX = zone.getCenterX();
+        currentY = zone.getCenterY();
+    }
+
+    public void toBase() {
         currentX = 0.0;
         currentY = 0.0;
     }

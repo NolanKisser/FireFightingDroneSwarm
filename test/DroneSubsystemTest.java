@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit;
  * Tests drone behaviour, event processing, and integration with the Scheduler.
  *
  * @author Jordan Grewal, Ozan Kaya, Nolan Kisser, Celina Yang
- * @version January 31, 2026
+ * @version February 14, 2026
  */
 public class DroneSubsystemTest {
 
@@ -213,5 +213,73 @@ public class DroneSubsystemTest {
         droneThread.join();
 
         assertFalse(droneThread.isAlive());
+    }
+
+
+    @Test
+    @DisplayName("Test DroneSubsystem for enRoute to zone center with loaded speed")
+    @Timeout(value = 15, unit = TimeUnit.SECONDS)
+    public void testComputeEnrouteFromBase() {
+        DroneSubsystem drone = new DroneSubsystem(scheduler, 1);
+        FireEvent event  = new FireEvent ("14:03:15", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+
+        double expected = Math.sqrt(350 * 350 + 300 * 300) / 10.0;
+        double actual = drone.getEnRoute(event);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("Test DroneSubsystem for extinguishing time with different event severity levels")
+    @Timeout(value = 15, unit = TimeUnit.SECONDS)
+    public void testComputeExtinguishAllSeverities() {
+        DroneSubsystem drone = new DroneSubsystem(scheduler, 1);
+        FireEvent eventLow = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+        FireEvent eventMod = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Moderate);
+        FireEvent eventHigh = new FireEvent("14:00:00",  1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.High);
+
+        assertEquals(10.0 / 2.0 + 1.0, drone.getExtinguish(eventLow));
+        assertEquals(20.0 / 2.0 + 1.0, drone.getExtinguish(eventMod));
+        assertEquals(30.0 / 2.0 + 1.0, drone.getExtinguish(eventHigh));
+    }
+
+    @Test
+    @DisplayName("Test DroneSubsystem for updating current location when at zone center")
+    @Timeout(value = 15, unit = TimeUnit.SECONDS)
+    public void testMoveToCenter() {
+        DroneSubsystem drone = new DroneSubsystem(scheduler, 1);
+        FireEvent event = new FireEvent("14:00:00", 2, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+
+        drone.toZoneCenter(event);
+
+        assertEquals(325.0, drone.getCurrentX());
+        assertEquals(1050.0, drone.getCurrentY());
+    }
+
+    @Test
+    @DisplayName("Test DroneSubsystem for return to based with unloaded speed")
+    @Timeout(value = 15, unit = TimeUnit.SECONDS)
+    public void testReturnToBaseSpeed() {
+        DroneSubsystem drone = new DroneSubsystem(scheduler, 1);
+        FireEvent event = new FireEvent("14:03:15",  1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+
+        drone.toZoneCenter(event);
+        double expected = Math.sqrt(350 * 350 + 300 * 300) / 15.0;
+
+        double actual = drone.getReturn(event);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("Test DroneSubsystem for updating current location when at base")
+    @Timeout(value = 15, unit = TimeUnit.SECONDS)
+    public void testResetBaseLocation() {
+        DroneSubsystem drone = new DroneSubsystem(scheduler, 1);
+        FireEvent event = new FireEvent("14:00:00",  1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+
+        drone.toZoneCenter(event);
+        drone.toBase();
+
+        assertEquals(0.0, drone.getCurrentX());
+        assertEquals(0.0, drone.getCurrentY());
     }
 }
