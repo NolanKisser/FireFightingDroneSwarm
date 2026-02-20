@@ -136,7 +136,7 @@ Right-click on any test class and select **Run**:
 ### Test Coverage
 The test suite provides comprehensive coverage across all components:
 
-**Unit Tests (49 tests):**
+**Unit Tests (65 tests):**
 * Data structures (FireEvent, Zone)
 * Scheduler event queue management and thread synchronization
 * Drone event processing and state management
