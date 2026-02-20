@@ -18,6 +18,32 @@ public class Scheduler {
         DRONE_ACTIVE
     }
 
+    public enum FaultType {
+        NONE,
+        COMMUNICATION_LOST,
+        NOZZLE_FAILURE,
+        STUCK_IN_FLIGHT
+    }
+
+    // Tracks the internal state of each drone
+    public static class DroneStatus {
+        public int droneID;
+        public double currentX;
+        public double currentY;
+        public double agentRemaining; // Remaining firefighting agent
+        public FaultType currentFault;
+        public FireEvent currentMission;
+
+        public DroneStatus(int id) {
+            this.droneID = id;
+            this.currentX = 0.0;
+            this.currentY = 0.0;
+            this.agentRemaining = 100.0; // Assume 100% capacity at start
+            this.currentFault = FaultType.NONE;
+            this.currentMission = null;
+        }
+    }
+
     private State currentState = State.WAITING;
 
     // fire events to be completed
@@ -25,6 +51,8 @@ public class Scheduler {
     // completed fire events
     private final Queue<FireEvent> completeEvents = new LinkedList<>();
 
+    // Track statuses of all drones
+    private final Map<Integer, DroneStatus> droneStatuses = new HashMap<>();
     private boolean allEventsDone = false;
 
     private final Map<Integer, Zone> zones = new HashMap<>();
@@ -34,7 +62,14 @@ public class Scheduler {
         loadZonesCSV(zoneFilePath);
     }
     /**
-     * Adds a new fire event from the CSV file to the incomplete events list
+     * Registers a drone in the scheduler's tracking system.
+     */
+    public synchronized void registerDrone(int droneID) {
+        droneStatuses.putIfAbsent(droneID, new DroneStatus(droneID));
+    }
+
+    /**
+     * Adds a new fire event from the CSV file to the priority queue
      * @param fireEvent event to add
      */
     public synchronized void newFireEvent(FireEvent fireEvent) {
@@ -66,7 +101,42 @@ public class Scheduler {
         }
 
         currentState = State.DRONE_ACTIVE;
-        return incompleteEvents.remove();
+        FireEvent nextEvent = incompleteEvents.poll();
+
+        return nextEvent;
+    }
+
+    /**
+     * Updates the status of a specific drone.
+     */
+    public synchronized void updateDroneStatus(int droneID, double x, double y, double agentRemaining) {
+        DroneStatus status = droneStatuses.get(droneID);
+        if (status != null) {
+            status.currentX = x;
+            status.currentY = y;
+            status.agentRemaining = agentRemaining;
+            System.out.printf("[Scheduler] Drone %d Status Update - Loc: (%.1f, %.1f), Agent: %.1f%%\n",
+                    droneID, x, y, agentRemaining);
+        }
+    }
+
+    /**
+     * Handles faults reported by a drone or detected via communication timeouts.
+     */
+    public synchronized void reportFault(int droneID, FaultType fault) {
+        DroneStatus status = droneStatuses.get(droneID);
+        if (status != null) {
+            status.currentFault = fault;
+            System.err.println("[Scheduler] FAULT DETECTED for Drone " + droneID + ": " + fault);
+
+            // If the drone was on a mission, requeue the mission so it isn't ignored
+            if (status.currentMission != null) {
+                System.out.println("[Scheduler] Re-queuing event from failed Drone " + droneID);
+                incompleteEvents.add(status.currentMission);
+                status.currentMission = null;
+                notifyAll(); // Wake up other available drones to take this event
+            }
+        }
     }
 
     /**
@@ -81,6 +151,12 @@ public class Scheduler {
 
     public synchronized void droneReturnToBase(int droneID){
         System.out.println("[Scheduler] Notification: Drone " + droneID + " returned to base.");
+        DroneStatus status = droneStatuses.get(droneID);
+        if(status != null) {
+            status.currentMission = null;
+            status.agentRemaining = 100.0;
+        }
+
         if (!incompleteEvents.isEmpty()) {
             currentState = State.EVENT_QUEUED;
         } else {
@@ -119,7 +195,7 @@ public class Scheduler {
         if(completeEvents.isEmpty() && allEventsDone && incompleteEvents.isEmpty()) {
             return null;
         }
-        return completeEvents.remove();
+        return completeEvents.poll();
     }
 
     /**
