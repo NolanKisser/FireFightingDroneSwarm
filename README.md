@@ -1,4 +1,4 @@
-# Firefighting Drone Swarm Simulation (Iteration 1)
+# Firefighting Drone Swarm Simulation
 
 ## Project Overview
 This project simulates a swarm of autonomous drones designed to detect and extinguish fires within specific zones. It utilizes a multi-threaded architecture to handle concurrent events, communication, and synchronization between fire detection systems and the drone swarm.
@@ -7,6 +7,11 @@ This project simulates a swarm of autonomous drones designed to detect and extin
 * **Producer-Consumer Pattern:** The `FireIncidentSubsystem` produces events, and the `DroneSubsystem` consumes them via a synchronized `Scheduler`.
 * **Concurrency:** Validates safe thread communication (wait/notify) and resource locking.
 * **Simulation Logic:** Calculates travel times and extinguishing durations based on zone coordinates and fire severity.
+
+**Iteration 2**
+* **Drone Lifecycle:** The `DroneSubsystem` operates using defined states (`IDLE`, `EN_ROUTE`, `EXTINGUISHING`, `RETURNING`) to display drone behaviour.
+* **Scheduler Logic:** The `Scheduler` now maintains operational states (`WAITING`, `EVENT_QUEUED`, `DRONE_ACTIVE`) to model system activity.
+
 
 ## Authors
 * Jordan Grewal
@@ -17,12 +22,12 @@ This project simulates a swarm of autonomous drones designed to detect and extin
 ## Project Structure
 
 ### Source Code (`src/`)
-* **`DroneSubsystem.java`**: The "Client" that simulates a physical drone. It retrieves events from the Scheduler, calculates flight/extinguish times, and reports completion.
+* **`DroneSubsystem.java`**: The "Client" that simulates a physical drone using a lifecycle state machine. It retrieves events from the `Scheduler`, calculates flight/extinguish times, and reports completion.
 * **`DroneSwarmMonitor.java`**: A simple GUI for monitoring drone activity.
 * **`FireIncidentSubsystem.java`**: The "Client" that acts as the input generator. It reads fire events from `event_file.csv` and submits them to the Scheduler.
 * **`FireEvent.java`**: A data transfer object representing a specific event (e.g., `FIRE_DETECTED`, `DRONE_REQUEST`) including details like time, zone ID, and severity.
 * **`Main.java`**: The entry point of the application. It initializes the `Scheduler`, starts the `FireIncidentSubsystem` and `DroneSubsystem` threads, and manages the simulation lifecycle.
-* **`Scheduler.java`**: Acts as the central server/monitor. It manages the queue of `FireEvent` objects, synchronizing access between the input subsystem and the drones. It also loads zone data.
+* **`Scheduler.java`**: Acts as the central server/monitor. It manages the queue of `FireEvent` objects, synchronizing access between the input subsystem and the drones. It maintains the drones operational states and coordinates drone notifications. It also loads zone data.
 * **`Zone.java`**: Represents a physical area defined by coordinates (x1, y1) to (x2, y2). Includes logic to calculate the center point for drone travel.
 * **`ZoneMap.java`**: A static map of zones to display on the console.
 
@@ -37,13 +42,13 @@ This project simulates a swarm of autonomous drones designed to detect and extin
 ### Test Code (`test/`)
 * **`FireEventTest.java`**: Unit tests for the FireEvent data structure (7 tests)
 * **`ZoneTest.java`**: Unit tests for the Zone class and coordinate calculations (7 tests)
-* **`SchedulerTest.java`**: Comprehensive tests for the Scheduler component including synchronization and event management (13 tests)
-* **`DroneSubsystemTest.java`**: Tests for drone behavior and event processing (9 tests)
+* **`SchedulerTest.java`**: Comprehensive tests for the Scheduler component including synchronization and event management (14 tests)
+* **`DroneSubsystemTest.java`**: Tests for drone behavior and event processing (14 tests)
 * **`FireIncidentSubsystemTest.java`**: Tests for CSV parsing and event submission (13 tests)
 * **`SystemIntegrationTest.java`**: End-to-end integration tests for the complete system (10 tests)
 * **`TestSuite.java`**: Master test suite for running all tests
 
-**Total: 59 tests**
+**Total: 65 tests**
 
 ## Prerequisites
 * **Java Development Kit (JDK):** Version 21 or higher.
