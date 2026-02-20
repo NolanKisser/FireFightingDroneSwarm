@@ -3,7 +3,7 @@
 ## Project Overview
 This project simulates a swarm of autonomous drones designed to detect and extinguish fires within specific zones. It utilizes a multi-threaded architecture to handle concurrent events, communication, and synchronization between fire detection systems and the drone swarm.
 
-**Current Iteration Features:**
+**Iteration 1**
 * **Producer-Consumer Pattern:** The `FireIncidentSubsystem` produces events, and the `DroneSubsystem` consumes them via a synchronized `Scheduler`.
 * **Concurrency:** Validates safe thread communication (wait/notify) and resource locking.
 * **Simulation Logic:** Calculates travel times and extinguishing durations based on zone coordinates and fire severity.
@@ -108,12 +108,13 @@ Rather than using real-time delays, the system uses `Thread.sleep()` with scaled
 ### CSV-Based Configuration
 Both zones and events are externally configurable via CSV files, allowing easy scenario testing without code modifications.
 
-## Known Limitations (Iteration 1)
+## Known Limitations (Iteration 2 Updated)
 * Single-threaded producer (one FireIncidentSubsystem)
 * Thread-based communication only (UDP not yet implemented)
 * No GUI visualization of drone positions
 * Drones always return to base after each event (no chaining of nearby incidents)
 * No collision detection between drones
+* No intelligent dispatch system (drones are assigned sequentially rather than proximity)
 
 ## Testing
 
