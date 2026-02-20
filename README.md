@@ -89,9 +89,15 @@ This project simulates a swarm of autonomous drones designed to detect and extin
 
 ## Output Example
 ```text
-DroneID: 1 is enRoute to fire in zone 1. Expected travel time: 35 seconds
-DroneID: 1 is extinguishing fire in zone 1. Expected completion time: 16 seconds
-DroneID: 1 is returning from zone 1. Expected return time: 23 seconds
+[Drone 1] En route to Zone 1. Expected travel time: 46.1 seconds
+[Scheduler] Drone 1 Status Update - Loc: (350.0, 300.0), Agent: 100.0%
+[Scheduler] Notification: Drone 1 arrived at Zone 1
+[Drone 1] Opening nozzle doors... (0.5s)
+[Drone 1] Dropping 10.0% agent on Zone 1... (5.0s)
+[Scheduler] Drone 1 Status Update - Loc: (350.0, 300.0), Agent: 90.0%
+[Drone 1] Closing nozzle doors... (0.5s)
+[Drone 1] Successfully extinguished fire in Zone 1!
+[Drone 1] Returning to base. Expected return time: 30.7 seconds
 ```
 
 ## Design Decisions
