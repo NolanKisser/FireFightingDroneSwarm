@@ -24,6 +24,7 @@ public class DroneSubsystem implements Runnable {
     // current drone location
     private double currentX = 0.0;
     private double currentY = 0.0;
+    private double currentAgent = 100.0; // 100% capacity
 
     // parameters obtained in iteration 0
     private static final double CRUISE_SPEED_LOADED = 10.0;
@@ -34,8 +35,6 @@ public class DroneSubsystem implements Runnable {
     private static final double LOW_VOLUME = 10.0;
     private static final double MODERATE_VOLUME = 20.0;
     private static final double HIGH_VOLUME = 30.0;
-    private static final double MAX_AGENT_CAPACITY = 30.0;
-    private double remainingAgent = MAX_AGENT_CAPACITY;
 
     /**
      * Constructor for DroneSubsystem
@@ -45,8 +44,9 @@ public class DroneSubsystem implements Runnable {
     public DroneSubsystem(Scheduler scheduler, int droneID) {
         this.scheduler = scheduler;
         this.droneID = droneID;
-        this.state = DroneState.IDLE;
-        this.scheduler.updateDroneState(this.state);
+        transitionTo(DroneState.IDLE);
+        // Register this drone with the scheduler's tracking system
+        this.scheduler.registerDrone(droneID);
     }
 
     /**
@@ -77,6 +77,19 @@ public class DroneSubsystem implements Runnable {
         double dropTime = loadVolume / DROP_RATE;
         double nozzleTime = NOZZLE_DOORS + NOZZLE_DOORS;
         return dropTime + nozzleTime;
+    }
+
+    private double getRequiredVolume(FireEvent event) {
+        return switch (event.getSeverity()) {
+            case Low -> LOW_VOLUME;
+            case Moderate -> MODERATE_VOLUME;
+            case High -> HIGH_VOLUME;
+        };
+    }
+
+    private void transitionTo(DroneState newState) {
+        this.state = newState;
+        scheduler.notifyDroneTransition(newState);
     }
 
     /**
@@ -119,20 +132,6 @@ public class DroneSubsystem implements Runnable {
     private void moveToBase() {
         currentX = 0.0;
         currentY = 0.0;
-    }
-
-    /**
-     * Determines the required volume of water to address a fire event based on the fire event's severity level.
-     *
-     * @param event the fire event for which the required volume is computed. The event must include a severity level.
-     * @return the required volume of water, as a double.
-     */
-    private double getRequiredVolume(FireEvent event) {
-        return switch (event.getSeverity()) {
-            case Low -> LOW_VOLUME;
-            case Moderate -> MODERATE_VOLUME;
-            case High -> HIGH_VOLUME;
-        };
     }
 
     public double getCurrentX() {
@@ -181,66 +180,97 @@ public class DroneSubsystem implements Runnable {
                         if (event == null) {
                             running = false; // Simulation complete
                         } else {
-                            if (remainingAgent < getRequiredVolume(event)) {
-                                state = DroneState.REFILLING;
-                                scheduler.updateDroneState(state);
+                            // Check if drone has enough agent to take on a mission
+                            if (currentAgent < LOW_VOLUME) {
+                                System.out.printf("[Drone %d] Insufficient agent (%.1f%%). Must refill before accepting mission.\n", droneID, currentAgent);
+                                // Requeue the event since we can't handle it
+                                scheduler.newFireEvent(event);
+                                event = null;
+                                transitionTo(DroneState.RETURNING);
                             } else {
-                                state = DroneState.EN_ROUTE; // Transition to start the job
-                                scheduler.updateDroneState(state);
+                                transitionTo(DroneState.EN_ROUTE);
                             }
                         }
                         break;
 
                     case EN_ROUTE:
                         double travelTime = computeEnRoute(event);
-                        System.out.println("DroneID: " + droneID + " is enRoute to fire in zone " + event.getZoneID()
-                                + ". Expected travel time: " + travelTime + " seconds");
-                        Thread.sleep(1000);
+                        System.out.printf("[Drone %d] En route to Zone %d. Expected travel time: %.1f seconds\n", droneID, event.getZoneID(), travelTime);
+
+                        Thread.sleep((long) (travelTime * 10)); // Scaled for simulation speed
                         moveToZoneCenter(event);
+
+                        // Push status update and notify arrival
+                        scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
                         scheduler.droneArrivedAtZone(droneID, event);
-                        state = DroneState.EXTINGUISHING;
-                        scheduler.updateDroneState(state);
+                        transitionTo(DroneState.EXTINGUISHING);
                         break;
 
                     case EXTINGUISHING:
-                        double extinguishTime = computeExtinguish(event);
-                        System.out.println("DroneID: " + droneID + " is extinguishing fire in zone " + event.getZoneID()
-                                + ". Expected completion time: " + extinguishTime + " seconds");
-                        Thread.sleep(1000);
-                        remainingAgent = Math.max(0.0, remainingAgent - getRequiredVolume(event));
-                        scheduler.completeFireEvent(event);
-                        FireEvent nextEvent = scheduler.peekNextFireEvent();
-                        if (nextEvent != null && remainingAgent >= getRequiredVolume(nextEvent)) {
-                            event = scheduler.getNextFireEvent();
-                            state = DroneState.EN_ROUTE;
-                            scheduler.updateDroneState(state);
+                        // Determine how much agent is required based on severity
+                        double requiredVolume = getRequiredVolume(event);
+
+                        // Calculate how much we can actually drop based on remaining capacity
+                        double volumeToDrop = Math.min(requiredVolume, currentAgent);
+                        double dropTime = volumeToDrop / DROP_RATE;
+
+                        // Physical Simulation: Open doors
+                        System.out.printf("[Drone %d] Opening nozzle doors... (%.1fs)\n", droneID, NOZZLE_DOORS);
+                        Thread.sleep((long) (NOZZLE_DOORS * 10));
+
+                        // Physical Simulation: Drop agent
+                        System.out.printf("[Drone %d] Dropping %.1f%% agent on Zone %d... (%.1fs)\n", droneID, volumeToDrop, event.getZoneID(), dropTime);
+                        Thread.sleep((long) (dropTime * 10));
+
+                        currentAgent -= volumeToDrop;
+                        scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
+
+                        // Physical Simulation: Close doors
+                        System.out.printf("[Drone %d] Closing nozzle doors... (%.1fs)\n", droneID, NOZZLE_DOORS);
+                        Thread.sleep((long) (NOZZLE_DOORS * 10));
+
+                        // Check if the drone successfully extinguished the fire
+                        if (volumeToDrop >= requiredVolume) {
+                            System.out.printf("[Drone %d] Successfully extinguished fire in Zone %d!\n", droneID, event.getZoneID());
+                            scheduler.completeFireEvent(event);
                         } else {
-                            state = DroneState.RETURNING;
-                            scheduler.updateDroneState(state);
+                            System.out.printf("[Drone %d] Ran out of agent! Fire in Zone %d not fully extinguished.\n", droneID, event.getZoneID());
+                            // Re-queue the event so another drone can finish the job
+                            scheduler.newFireEvent(event);
                         }
-                        break;
 
-                    case RETURNING:
-                        System.out.println("DroneID: " + droneID + " is returning from zone " + event.getZoneID()
-                                + ". Expected return time: " + (int) computeReturn(event) + " seconds\n");
-                        Thread.sleep(1000);
-                        moveToBase();
-                        remainingAgent = MAX_AGENT_CAPACITY;
-
-                        scheduler.droneReturnToBase(droneID);
-                        state = DroneState.IDLE;
-                        scheduler.updateDroneState(state);
+                        // Always return to base after a drop (can be optimized in future iterations to chain nearby fires)
+                        transitionTo(DroneState.RETURNING);
                         event = null;
                         break;
 
+                    case RETURNING:
+                        double returnTime = computeReturn(event);
+                        System.out.printf("[Drone %d] Returning to base. Expected return time: %.1f seconds\n", droneID, returnTime);
+
+                        Thread.sleep((long) (returnTime * 10)); // Scaled
+                        moveToBase();
+                        scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
+
+                        transitionTo(DroneState.REFILLING);
+                        break;
+
                     case REFILLING:
-                        remainingAgent = MAX_AGENT_CAPACITY;
-                        state = DroneState.EN_ROUTE;
-                        scheduler.updateDroneState(state);
+                        System.out.printf("[Drone %d] Refilling agent at base...\n", droneID);
+                        Thread.sleep(1500); // Simulate refill time
+
+                        currentAgent = 100.0; // Agent replenished
+                        scheduler.droneReturnToBase(droneID); // Notify scheduler we are ready
+                        scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
+
+                        transitionTo(DroneState.IDLE);
                         break;
 
                     case FAULTED:
-                        running = false;
+                        // The drone sits inactive. The scheduler will have re-queued its mission.
+                        Thread.sleep(5000);
+                        // In a real application, you might transition to an attempt to recover or restart
+                        running = false; // End the thread for this faulted drone
                         break;
                 }
             } catch (InterruptedException e) {

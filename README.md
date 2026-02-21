@@ -1,15 +1,17 @@
-# Firefighting Drone Swarm Simulation (Iteration 2)
+# Firefighting Drone Swarm Simulation
 
 ## Project Overview
 This project simulates a swarm of autonomous drones designed to detect and extinguish fires within specific zones. It utilizes a multi-threaded architecture to handle concurrent events, communication, and synchronization between fire detection systems and the drone swarm.
 
-**Current Iteration Features:**
+**Iteration 1**
 * **Producer-Consumer Pattern:** The `FireIncidentSubsystem` produces events, and the `DroneSubsystem` consumes them via a synchronized `Scheduler`.
 * **Concurrency:** Validates safe thread communication (wait/notify) and resource locking.
 * **Simulation Logic:** Calculates travel times and extinguishing durations based on zone coordinates and fire severity.
-* **State Machines:** Scheduler and drone state transitions (idle, en route, dropping agent, returning).
-* **Agent Capacity Tracking:** Drone tracks remaining water/foam and can chain nearby missions before refilling.
-* **GUI Status:** Monitor shows current drone state and active fire count.
+
+**Iteration 2**
+* **Drone Lifecycle:** The `DroneSubsystem` operates using defined states (`IDLE`, `EN_ROUTE`, `EXTINGUISHING`, `RETURNING`) to display drone behaviour.
+* **Scheduler Logic:** The `Scheduler` now maintains operational states (`WAITING`, `EVENT_QUEUED`, `DRONE_ACTIVE`) to model system activity.
+
 
 ## Authors
 * Jordan Grewal
@@ -18,17 +20,18 @@ This project simulates a swarm of autonomous drones designed to detect and extin
 * Celina Yang
 
 ## Project Structure
+
 ### Diagrams (`diagrams/`)
-* **`Iteration 1/`**: Contains all diagrams from the 1st iteration of the project.
-* **`Iteration 2/`**: Contains all diagrams from the 2nd iteration of the project.
+* **`Iteration 1/`**: Contains diagrams for the first iteration of the project.
+* **`Iteration 2/`**: Contains diagrams for the second iteration of the project.
 
 ### Source Code (`src/`)
-* **`DroneSubsystem.java`**: The "Client" that simulates a physical drone. It retrieves events from the Scheduler, calculates flight/extinguish times, and reports completion.
+* **`DroneSubsystem.java`**: The "Client" that simulates a physical drone using a lifecycle state machine. It retrieves events from the `Scheduler`, calculates flight/extinguish times, and reports completion.
 * **`DroneSwarmMonitor.java`**: A simple GUI for monitoring drone activity.
 * **`FireIncidentSubsystem.java`**: The "Client" that acts as the input generator. It reads fire events from `event_file.csv` and submits them to the Scheduler.
 * **`FireEvent.java`**: A data transfer object representing a specific event (e.g., `FIRE_DETECTED`, `DRONE_REQUEST`) including details like time, zone ID, and severity.
 * **`Main.java`**: The entry point of the application. It initializes the `Scheduler`, starts the `FireIncidentSubsystem` and `DroneSubsystem` threads, and manages the simulation lifecycle.
-* **`Scheduler.java`**: Acts as the central server/monitor. It manages the queue of `FireEvent` objects, synchronizing access between the input subsystem and the drones. It also loads zone data.
+* **`Scheduler.java`**: Acts as the central server/monitor. It manages the queue of `FireEvent` objects, synchronizing access between the input subsystem and the drones. It maintains the drones operational states and coordinates drone notifications. It also loads zone data.
 * **`Zone.java`**: Represents a physical area defined by coordinates (x1, y1) to (x2, y2). Includes logic to calculate the center point for drone travel.
 * **`ZoneMap.java`**: A static map of zones to display on the console.
 
@@ -43,13 +46,13 @@ This project simulates a swarm of autonomous drones designed to detect and extin
 ### Test Code (`test/`)
 * **`FireEventTest.java`**: Unit tests for the FireEvent data structure (7 tests)
 * **`ZoneTest.java`**: Unit tests for the Zone class and coordinate calculations (7 tests)
-* **`SchedulerTest.java`**: Comprehensive tests for the Scheduler component including synchronization and event management (13 tests)
-* **`DroneSubsystemTest.java`**: Tests for drone behavior and event processing (9 tests)
+* **`SchedulerTest.java`**: Comprehensive tests for the Scheduler component including synchronization and event management (14 tests)
+* **`DroneSubsystemTest.java`**: Tests for drone behavior and event processing (14 tests)
 * **`FireIncidentSubsystemTest.java`**: Tests for CSV parsing and event submission (13 tests)
 * **`SystemIntegrationTest.java`**: End-to-end integration tests for the complete system (10 tests)
 * **`TestSuite.java`**: Master test suite for running all tests
 
-**Total: 59 tests**
+**Total: 65 tests**
 
 ## Prerequisites
 * **Java Development Kit (JDK):** Version 21 or higher.
@@ -90,9 +93,15 @@ This project simulates a swarm of autonomous drones designed to detect and extin
 
 ## Output Example
 ```text
-DroneID: 1 is enRoute to fire in zone 1. Expected travel time: 35 seconds
-DroneID: 1 is extinguishing fire in zone 1. Expected completion time: 16 seconds
-DroneID: 1 is returning from zone 1. Expected return time: 23 seconds
+[Drone 1] En route to Zone 1. Expected travel time: 46.1 seconds
+[Scheduler] Drone 1 Status Update - Loc: (350.0, 300.0), Agent: 100.0%
+[Scheduler] Notification: Drone 1 arrived at Zone 1
+[Drone 1] Opening nozzle doors... (0.5s)
+[Drone 1] Dropping 10.0% agent on Zone 1... (5.0s)
+[Scheduler] Drone 1 Status Update - Loc: (350.0, 300.0), Agent: 90.0%
+[Drone 1] Closing nozzle doors... (0.5s)
+[Drone 1] Successfully extinguished fire in Zone 1!
+[Drone 1] Returning to base. Expected return time: 30.7 seconds
 ```
 
 ## Design Decisions
@@ -109,11 +118,13 @@ Rather than using real-time delays, the system uses `Thread.sleep()` with scaled
 ### CSV-Based Configuration
 Both zones and events are externally configurable via CSV files, allowing easy scenario testing without code modifications.
 
-## Known Limitations (Iteration 2)
+## Known Limitations (Iteration 2 Updated)
 * Single-threaded producer (one FireIncidentSubsystem)
 * Thread-based communication only (UDP not yet implemented)
 * No GUI visualization of drone positions
+* Drones always return to base after each event (no chaining of nearby incidents)
 * No collision detection between drones
+* No intelligent dispatch system (drones are assigned sequentially rather than proximity)
 
 ## Testing
 
@@ -136,7 +147,7 @@ Right-click on any test class and select **Run**:
 ### Test Coverage
 The test suite provides comprehensive coverage across all components:
 
-**Unit Tests (49 tests):**
+**Unit Tests (65 tests):**
 * Data structures (FireEvent, Zone)
 * Scheduler event queue management and thread synchronization
 * Drone event processing and state management
