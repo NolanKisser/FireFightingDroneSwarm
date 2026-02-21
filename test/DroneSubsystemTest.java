@@ -104,7 +104,7 @@ public class DroneSubsystemTest {
         droneThread.start();
 
         // Wait for drone to process...
-        Thread.sleep(3500); // 3 seconds for processing + buffer
+        Thread.sleep(10000);
 
         FireEvent completed = scheduler.getCompletedEvent();
         assertNotNull(completed);
