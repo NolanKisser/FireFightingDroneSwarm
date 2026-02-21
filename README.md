@@ -18,6 +18,9 @@ This project simulates a swarm of autonomous drones designed to detect and extin
 * Celina Yang
 
 ## Project Structure
+### Diagrams (`diagrams/`)
+* **`Iteration 1/`**: Contains all diagrams from the 1st iteration of the project.
+* **`Iteration 2/`**: Contains all diagrams from the 2nd iteration of the project.
 
 ### Source Code (`src/`)
 * **`DroneSubsystem.java`**: The "Client" that simulates a physical drone. It retrieves events from the Scheduler, calculates flight/extinguish times, and reports completion.
