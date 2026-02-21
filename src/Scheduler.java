@@ -56,9 +56,15 @@ public class Scheduler {
     private boolean allEventsDone = false;
 
     private final Map<Integer, Zone> zones = new HashMap<>();
+    private final DroneSwarmMonitor monitor;
 
 
     public Scheduler(String zoneFilePath) {
+        this(zoneFilePath, null);
+    }
+
+    public Scheduler(String zoneFilePath, DroneSwarmMonitor monitor) {
+        this.monitor = monitor;
         loadZonesCSV(zoneFilePath);
     }
     /**
@@ -77,6 +83,7 @@ public class Scheduler {
         if (currentState == State.WAITING) {
             currentState = State.EVENT_QUEUED;
         }
+        updateMonitorCounts();
         notifyAll();
     }
 
@@ -177,6 +184,7 @@ public class Scheduler {
      */
     public synchronized void completeFireEvent(FireEvent fireEvent) {
         completeEvents.add(fireEvent);
+        updateMonitorCounts();
         notifyAll();
     }
 
@@ -234,6 +242,23 @@ public class Scheduler {
      */
     public Map<Integer, Zone> getZones() {
         return zones;
+    }
+
+    public synchronized int getActiveFireCount() {
+        return incompleteEvents.size();
+    }
+
+    public void notifyDroneTransition(DroneSubsystem.DroneState state) {
+        if (monitor != null) {
+            monitor.setDroneState(state.name());
+            monitor.setActiveFires(getActiveFireCount());
+        }
+    }
+
+    private void updateMonitorCounts() {
+        if (monitor != null) {
+            monitor.setActiveFires(getActiveFireCount());
+        }
     }
 
 

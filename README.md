@@ -21,6 +21,10 @@ This project simulates a swarm of autonomous drones designed to detect and extin
 
 ## Project Structure
 
+### Diagrams (`diagrams/`)
+* **`Iteration 1/`**: Contains diagrams for the first iteration of the project.
+* **`Iteration 2/`**: Contains diagrams for the second iteration of the project.
+
 ### Source Code (`src/`)
 * **`DroneSubsystem.java`**: The "Client" that simulates a physical drone using a lifecycle state machine. It retrieves events from the `Scheduler`, calculates flight/extinguish times, and reports completion.
 * **`DroneSwarmMonitor.java`**: A simple GUI for monitoring drone activity.

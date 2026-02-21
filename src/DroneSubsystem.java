@@ -8,7 +8,7 @@
 public class DroneSubsystem implements Runnable {
 
 
-    public enum State {
+    public enum DroneState {
         IDLE,
         EN_ROUTE,
         EXTINGUISHING,
@@ -18,7 +18,7 @@ public class DroneSubsystem implements Runnable {
     }
     private final Scheduler scheduler;
     private final int droneID;
-    private State state;
+    private DroneState state;
     private FireEvent event;
 
     // current drone location
@@ -44,7 +44,7 @@ public class DroneSubsystem implements Runnable {
     public DroneSubsystem(Scheduler scheduler, int droneID) {
         this.scheduler = scheduler;
         this.droneID = droneID;
-        this.state = State.IDLE;
+        transitionTo(DroneState.IDLE);
         // Register this drone with the scheduler's tracking system
         this.scheduler.registerDrone(droneID);
     }
@@ -73,15 +73,23 @@ public class DroneSubsystem implements Runnable {
      * @return extinguish time in seconds
      */
     private double computeExtinguish(FireEvent event) {
-        double loadVolume = switch (event.getSeverity()) {
+        double loadVolume = getRequiredVolume(event);
+        double dropTime = loadVolume / DROP_RATE;
+        double nozzleTime = NOZZLE_DOORS + NOZZLE_DOORS;
+        return dropTime + nozzleTime;
+    }
+
+    private double getRequiredVolume(FireEvent event) {
+        return switch (event.getSeverity()) {
             case Low -> LOW_VOLUME;
             case Moderate -> MODERATE_VOLUME;
             case High -> HIGH_VOLUME;
         };
+    }
 
-        double dropTime = loadVolume / DROP_RATE;
-        double nozzleTime = NOZZLE_DOORS + NOZZLE_DOORS;
-        return dropTime + nozzleTime;
+    private void transitionTo(DroneState newState) {
+        this.state = newState;
+        scheduler.notifyDroneTransition(newState);
     }
 
     /**
@@ -178,9 +186,9 @@ public class DroneSubsystem implements Runnable {
                                 // Requeue the event since we can't handle it
                                 scheduler.newFireEvent(event);
                                 event = null;
-                                state = State.RETURNING;
+                                transitionTo(DroneState.RETURNING);
                             } else {
-                                state = State.EN_ROUTE;
+                                transitionTo(DroneState.EN_ROUTE);
                             }
                         }
                         break;
@@ -195,16 +203,12 @@ public class DroneSubsystem implements Runnable {
                         // Push status update and notify arrival
                         scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
                         scheduler.droneArrivedAtZone(droneID, event);
-                        state = State.EXTINGUISHING;
+                        transitionTo(DroneState.EXTINGUISHING);
                         break;
 
                     case EXTINGUISHING:
                         // Determine how much agent is required based on severity
-                        double requiredVolume = switch (event.getSeverity()) {
-                            case Low -> LOW_VOLUME;
-                            case Moderate -> MODERATE_VOLUME;
-                            case High -> HIGH_VOLUME;
-                        };
+                        double requiredVolume = getRequiredVolume(event);
 
                         // Calculate how much we can actually drop based on remaining capacity
                         double volumeToDrop = Math.min(requiredVolume, currentAgent);
@@ -236,7 +240,7 @@ public class DroneSubsystem implements Runnable {
                         }
 
                         // Always return to base after a drop (can be optimized in future iterations to chain nearby fires)
-                        state = State.RETURNING;
+                        transitionTo(DroneState.RETURNING);
                         event = null;
                         break;
 
@@ -248,7 +252,7 @@ public class DroneSubsystem implements Runnable {
                         moveToBase();
                         scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
 
-                        state = State.REFILLING;
+                        transitionTo(DroneState.REFILLING);
                         break;
 
                     case REFILLING:
@@ -259,7 +263,7 @@ public class DroneSubsystem implements Runnable {
                         scheduler.droneReturnToBase(droneID); // Notify scheduler we are ready
                         scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
 
-                        state = State.IDLE;
+                        transitionTo(DroneState.IDLE);
                         break;
 
                     case FAULTED:
