@@ -26,12 +26,20 @@ public class Scheduler {
     private final Queue<FireEvent> completeEvents = new LinkedList<>();
 
     private boolean allEventsDone = false;
+    private int activeFires = 0;
 
     private final Map<Integer, Zone> zones = new HashMap<>();
+    private final DroneSwarmMonitor monitor;
 
 
     public Scheduler(String zoneFilePath) {
+        this(zoneFilePath, null);
+    }
+
+    public Scheduler(String zoneFilePath, DroneSwarmMonitor monitor) {
+        this.monitor = monitor;
         loadZonesCSV(zoneFilePath);
+        updateActiveFiresDisplay();
     }
     /**
      * Adds a new fire event from the CSV file to the incomplete events list
@@ -39,6 +47,8 @@ public class Scheduler {
      */
     public synchronized void newFireEvent(FireEvent fireEvent) {
         incompleteEvents.add(fireEvent);
+        activeFires++;
+        updateActiveFiresDisplay();
         if (currentState == State.WAITING) {
             currentState = State.EVENT_QUEUED;
         }
@@ -101,6 +111,10 @@ public class Scheduler {
      */
     public synchronized void completeFireEvent(FireEvent fireEvent) {
         completeEvents.add(fireEvent);
+        if (activeFires > 0) {
+            activeFires--;
+        }
+        updateActiveFiresDisplay();
         notifyAll();
     }
 
@@ -160,7 +174,44 @@ public class Scheduler {
         return zones;
     }
 
+    /**
+     * Peek at the next fire event without removing it.
+     * @return the next fire event or null if none are queued
+     */
+    public synchronized FireEvent peekNextFireEvent() {
+        return incompleteEvents.peek();
+    }
 
+    /**
+     * Update the GUI with the drone's current state.
+     * @param newState current drone state
+     */
+    public synchronized void updateDroneState(DroneSubsystem.DroneState newState) {
+        updateDroneStateDisplay(newState);
+    }
+
+    /**
+     * Update the GUI with the number of active fires.
+     */
+    private void updateActiveFiresDisplay() {
+        if (monitor != null) {
+            monitor.setActiveFires(activeFires);
+        }
+    }
+
+    /**
+     * Update the GUI with the drone's current state.
+     * @param state
+     */
+    private void updateDroneStateDisplay(DroneSubsystem.DroneState state) {
+        if (monitor != null && state != null) {
+            monitor.setDroneState(formatDroneState(state));
+        }
+    }
+
+    private static String formatDroneState(DroneSubsystem.DroneState state) {
+        return state.name().replace('_', ' ');
+    }
 
 
 }

@@ -12,7 +12,7 @@ public class Main {
         String csvFilePath = "event_file.csv";
         String zonesFilePath = "zone_file.csv";
         DroneSwarmMonitor monitor =  new DroneSwarmMonitor();
-        Scheduler scheduler = new Scheduler(zonesFilePath);
+        Scheduler scheduler = new Scheduler(zonesFilePath, monitor);
 
         // create subsystem threads for fire incident and drone
         Thread fireincidentsubsystem = new Thread(new FireIncidentSubsystem(scheduler, csvFilePath));

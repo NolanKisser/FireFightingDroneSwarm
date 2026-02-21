@@ -14,6 +14,8 @@ public class DroneSwarmMonitor extends JFrame {
     private SimpleDateFormat timeFormat;
     private ZoneMap mapPanel;
     private JPanel mapContainer;
+    private JLabel droneStateLabel;
+    private JLabel activeFiresLabel;
 
     public DroneSwarmMonitor() {
         super("SYSC 3303A: Firefighting Drone Swarm Monitor");
@@ -28,8 +30,12 @@ public class DroneSwarmMonitor extends JFrame {
 
         //Load CSV button
         JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JButton loadCsvBtn = new JButton("Load Incident CSV");
-        controlPanel.add(loadCsvBtn);
+        droneStateLabel = new JLabel("Drone State: IDLE");
+        activeFiresLabel = new JLabel("Active Fires: 0");
+        controlPanel.add(Box.createHorizontalStrut(20));
+        controlPanel.add(droneStateLabel);
+        controlPanel.add(Box.createHorizontalStrut(20));
+        controlPanel.add(activeFiresLabel);
         this.add(controlPanel, BorderLayout.NORTH);
 
         //Zone Map
@@ -65,5 +71,21 @@ public class DroneSwarmMonitor extends JFrame {
             eventLog.append(logEntry);
             eventLog.setCaretPosition(eventLog.getDocument().getLength());
         });
+    }
+
+    /**
+     * Updates the current drone state in the GUI.
+     * @param state the new drone state
+     */
+    public void setDroneState(String state) {
+        SwingUtilities.invokeLater(() -> droneStateLabel.setText("Drone State: " + state));
+    }
+
+    /**
+     * Updates the active fire count in the GUI.
+     * @param count number of active fire incidents
+     */
+    public void setActiveFires(int count) {
+        SwingUtilities.invokeLater(() -> activeFiresLabel.setText("Active Fires: " + count));
     }
 }

@@ -8,15 +8,17 @@
 public class DroneSubsystem implements Runnable {
 
 
-    public enum State {
+    public enum DroneState {
         IDLE,
         EN_ROUTE,
         EXTINGUISHING,
-        RETURNING
+        RETURNING,
+        REFILLING,
+        FAULTED
     }
     private final Scheduler scheduler;
     private final int droneID;
-    private State state;
+    private DroneState state;
     private FireEvent event;
 
     // current drone location
@@ -32,6 +34,8 @@ public class DroneSubsystem implements Runnable {
     private static final double LOW_VOLUME = 10.0;
     private static final double MODERATE_VOLUME = 20.0;
     private static final double HIGH_VOLUME = 30.0;
+    private static final double MAX_AGENT_CAPACITY = 30.0;
+    private double remainingAgent = MAX_AGENT_CAPACITY;
 
     /**
      * Constructor for DroneSubsystem
@@ -41,7 +45,8 @@ public class DroneSubsystem implements Runnable {
     public DroneSubsystem(Scheduler scheduler, int droneID) {
         this.scheduler = scheduler;
         this.droneID = droneID;
-        this.state = State.IDLE;
+        this.state = DroneState.IDLE;
+        this.scheduler.updateDroneState(this.state);
     }
 
     /**
@@ -68,12 +73,7 @@ public class DroneSubsystem implements Runnable {
      * @return extinguish time in seconds
      */
     private double computeExtinguish(FireEvent event) {
-        double loadVolume = switch (event.getSeverity()) {
-            case Low -> LOW_VOLUME;
-            case Moderate -> MODERATE_VOLUME;
-            case High -> HIGH_VOLUME;
-        };
-
+        double loadVolume = getRequiredVolume(event);
         double dropTime = loadVolume / DROP_RATE;
         double nozzleTime = NOZZLE_DOORS + NOZZLE_DOORS;
         return dropTime + nozzleTime;
@@ -119,6 +119,20 @@ public class DroneSubsystem implements Runnable {
     private void moveToBase() {
         currentX = 0.0;
         currentY = 0.0;
+    }
+
+    /**
+     * Determines the required volume of water to address a fire event based on the fire event's severity level.
+     *
+     * @param event the fire event for which the required volume is computed. The event must include a severity level.
+     * @return the required volume of water, as a double.
+     */
+    private double getRequiredVolume(FireEvent event) {
+        return switch (event.getSeverity()) {
+            case Low -> LOW_VOLUME;
+            case Moderate -> MODERATE_VOLUME;
+            case High -> HIGH_VOLUME;
+        };
     }
 
     public double getCurrentX() {
@@ -167,7 +181,13 @@ public class DroneSubsystem implements Runnable {
                         if (event == null) {
                             running = false; // Simulation complete
                         } else {
-                            state = State.EN_ROUTE; // Transition to start the job
+                            if (remainingAgent < getRequiredVolume(event)) {
+                                state = DroneState.REFILLING;
+                                scheduler.updateDroneState(state);
+                            } else {
+                                state = DroneState.EN_ROUTE; // Transition to start the job
+                                scheduler.updateDroneState(state);
+                            }
                         }
                         break;
 
@@ -178,7 +198,8 @@ public class DroneSubsystem implements Runnable {
                         Thread.sleep(1000);
                         moveToZoneCenter(event);
                         scheduler.droneArrivedAtZone(droneID, event);
-                        state = State.EXTINGUISHING;
+                        state = DroneState.EXTINGUISHING;
+                        scheduler.updateDroneState(state);
                         break;
 
                     case EXTINGUISHING:
@@ -186,20 +207,40 @@ public class DroneSubsystem implements Runnable {
                         System.out.println("DroneID: " + droneID + " is extinguishing fire in zone " + event.getZoneID()
                                 + ". Expected completion time: " + extinguishTime + " seconds");
                         Thread.sleep(1000);
+                        remainingAgent = Math.max(0.0, remainingAgent - getRequiredVolume(event));
                         scheduler.completeFireEvent(event);
-                        state = State.RETURNING;
+                        FireEvent nextEvent = scheduler.peekNextFireEvent();
+                        if (nextEvent != null && remainingAgent >= getRequiredVolume(nextEvent)) {
+                            event = scheduler.getNextFireEvent();
+                            state = DroneState.EN_ROUTE;
+                            scheduler.updateDroneState(state);
+                        } else {
+                            state = DroneState.RETURNING;
+                            scheduler.updateDroneState(state);
+                        }
                         break;
 
                     case RETURNING:
-                        double returnTime = computeReturn(event);
                         System.out.println("DroneID: " + droneID + " is returning from zone " + event.getZoneID()
                                 + ". Expected return time: " + (int) computeReturn(event) + " seconds\n");
                         Thread.sleep(1000);
                         moveToBase();
+                        remainingAgent = MAX_AGENT_CAPACITY;
 
                         scheduler.droneReturnToBase(droneID);
-                        state = State.IDLE;
+                        state = DroneState.IDLE;
+                        scheduler.updateDroneState(state);
                         event = null;
+                        break;
+
+                    case REFILLING:
+                        remainingAgent = MAX_AGENT_CAPACITY;
+                        state = DroneState.EN_ROUTE;
+                        scheduler.updateDroneState(state);
+                        break;
+
+                    case FAULTED:
+                        running = false;
                         break;
                 }
             } catch (InterruptedException e) {
