@@ -261,6 +261,9 @@ public class Scheduler {
         }
     }
 
+    public State getCurrentState() {
+        return currentState;
+    }
 
 
 

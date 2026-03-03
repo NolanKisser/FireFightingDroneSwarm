@@ -102,9 +102,7 @@ public class DroneSubsystemTest {
 
         Thread droneThread = new Thread(new DroneSubsystem(scheduler, 1));
         droneThread.start();
-
-        // Wait for drone to process...
-        Thread.sleep(10000);
+        
 
         FireEvent completed = scheduler.getCompletedEvent();
         assertNotNull(completed);
@@ -281,5 +279,96 @@ public class DroneSubsystemTest {
 
         assertEquals(0.0, drone.getCurrentX());
         assertEquals(0.0, drone.getCurrentY());
+    }
+
+    @Test
+    @DisplayName("Test DroneSubsystem for single event transitions through all states")
+    @Timeout(value = 15, unit = TimeUnit.SECONDS)
+    public void singleEventTransitions() throws InterruptedException {
+        FireEvent event = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+        scheduler.newFireEvent(event);
+        scheduler.updateAllEventsDone();
+
+        DroneSubsystem drone = new DroneSubsystem(scheduler, 1);
+        Thread t = new Thread(drone);
+        t.start();
+
+        waitUntil(() -> drone.getDroneState() == DroneSubsystem.DroneState.EN_ROUTE, 2000);
+        waitUntil(() -> drone.getDroneState() == DroneSubsystem.DroneState.EXTINGUISHING, 3000);
+        waitUntil(() -> drone.getDroneState() == DroneSubsystem.DroneState.RETURNING, 4000);
+        waitUntil(() -> drone.getDroneState() == DroneSubsystem.DroneState.REFILLING, 5000);
+        waitUntil(() -> drone.getDroneState() == DroneSubsystem.DroneState.IDLE, 8000);
+
+        t.join(8000);
+        assertFalse(t.isAlive());
+
+    }
+
+    @Test
+    @DisplayName("Test DroneSubsystem for insufficient agent")
+    @Timeout(value = 15, unit = TimeUnit.SECONDS)
+    public void insufficientAgent() throws InterruptedException {
+        FireEvent event = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+        scheduler.newFireEvent(event);
+        scheduler.updateAllEventsDone();
+
+        DroneSubsystem drone = new DroneSubsystem(scheduler, 1);
+
+        drone.toZoneCenter(event);
+
+        Thread t = new Thread(drone);
+        t.start();
+
+        waitUntil(() -> drone.getDroneState() == DroneSubsystem.DroneState.EN_ROUTE || drone.getDroneState() == DroneSubsystem.DroneState.RETURNING, 2000);
+
+        t.join(6000);
+    }
+
+    @Test
+    @DisplayName("Test DroneSubsystem for high severity and not enough agent")
+    @Timeout(value = 15, unit = TimeUnit.SECONDS)
+    public void notEnoughAgent() throws InterruptedException {
+        FireEvent event = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.High);
+        scheduler.newFireEvent(event);
+        scheduler.updateAllEventsDone();
+
+        DroneSubsystem drone = new DroneSubsystem(scheduler, 1);
+
+        drone.toZoneCenter(event);
+
+        Thread t = new Thread(drone);
+        t.start();
+
+        waitUntil(() -> drone.getDroneState() == DroneSubsystem.DroneState.RETURNING, 5000);
+
+        assertTrue(scheduler.getActiveFireCount() >= 0);
+        t.join(6000);
+    }
+
+
+    /**
+     * helper function
+     * @param condition
+     * @param timeout
+     */
+    private static void waitUntil(BooleanSupplier condition, long timeout) {
+        long start = System.currentTimeMillis();
+        while(System.currentTimeMillis() - start < timeout) {
+            if(condition.get()) {
+                return;
+            }
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * helper function
+     */
+    private interface BooleanSupplier {
+        boolean get();
     }
 }

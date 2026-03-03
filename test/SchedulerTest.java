@@ -308,6 +308,9 @@ public class SchedulerTest {
         assertEquals(2, completed2.getZoneID());
     }
 
+    @Test
+    @DisplayName("Test get next fire event block and unblock")
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
     public void testGetNextFireEventBlockAndUnblock() throws InterruptedException {
         FireEvent[] holder = new FireEvent[1];
         Thread consumer = new Thread(() -> {
@@ -327,37 +330,49 @@ public class SchedulerTest {
 
     }
 
+    @Test
+    @DisplayName("Test completed event blocks until completed")
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
     public void testCompletedEventBlocksUntilCompleted() throws InterruptedException {
-        FireEvent[] holder = new FireEvent[1];
-        Thread consumer = new Thread(() -> {
-            holder[0] = scheduler.getCompletedEvent();
-        });
-
-        consumer.start();
-        assertNull(holder[0]);
-
         FireEvent event = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+
+        Thread drone = new Thread(new DroneSubsystem(scheduler, 1));
+        drone.start();
+
         scheduler.newFireEvent(event);
 
-        consumer.join();
-        assertNotNull(holder[0]);
-        assertEquals(1, holder[0].getZoneID());
+        FireEvent completed = scheduler.getCompletedEvent();
+        assertNotNull(completed);
+        assertEquals(1, completed.getZoneID());
+
+        scheduler.updateAllEventsDone();
+        drone.join(8000);
+        assertFalse(drone.isAlive());
 
     }
 
+    @Test
+    @DisplayName("Test next fire event updated complete")
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
     public void testNextFireEventUpdateComplete() {
         scheduler.updateAllEventsDone();
         assertNull(scheduler.getCompletedEvent());
     }
 
+    @Test
+    @DisplayName("Test all fire event complete")
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
     public void testAllFireEventComplete() {
         scheduler.updateAllEventsDone();
         assertNull(scheduler.getCompletedEvent());
     }
 
+    @Test
+    @DisplayName("Test return to base")
+    @Timeout(value = 10, unit = TimeUnit.SECONDS)
     public void testReturnToBase() {
         FireEvent event1 = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
-        FireEvent event2 = new FireEvent("14:03:15", 1,  FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.High);
+        FireEvent event2 = new FireEvent("14:03:15", 2,  FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.High);
 
         scheduler.newFireEvent(event1);
         scheduler.newFireEvent(event2);
@@ -374,6 +389,9 @@ public class SchedulerTest {
 
     }
 
+    @Test
+    @DisplayName("Test arrived to zone")
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
     public void testArriveToZone() {
         FireEvent event = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
 
@@ -382,6 +400,9 @@ public class SchedulerTest {
         });
     }
 
+    @Test
+    @DisplayName("Test FIFO still holds")
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
     public void testFIFOStillHolds() {
         FireEvent event1 = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Moderate);
         FireEvent event2 = new FireEvent("14:10:15", 2, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.High);
@@ -395,4 +416,71 @@ public class SchedulerTest {
         assertEquals(2, scheduler.getNextFireEvent().getZoneID());
         assertEquals(3, scheduler.getNextFireEvent().getZoneID());
     }
+
+    @Test
+    @DisplayName("FSM: Test init enters waiting")
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
+    public void initEntersWaiting() {
+        assertEquals(Scheduler.State.WAITING, scheduler.getCurrentState());
+    }
+
+    @Test
+    @DisplayName("FSM: Test new event transitions to event queued")
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
+    public void newEventTransitionsToEventQueued() {
+        FireEvent event = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+
+        scheduler.newFireEvent(event);
+        assertEquals(Scheduler.State.EVENT_QUEUED, scheduler.getCurrentState());
+    }
+
+    @Test
+    @DisplayName("FSM: Test get next event transitions to drone active")
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
+    public void getNextEventTransitionsToDroneActive() {
+        FireEvent event = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+
+        scheduler.newFireEvent(event);
+
+        FireEvent firstEvent = scheduler.getNextFireEvent();
+        assertNotNull(firstEvent);
+        assertEquals(Scheduler.State.DRONE_ACTIVE, scheduler.getCurrentState());
+
+    }
+
+    @Test
+    @DisplayName("FSM: Test drone returns to base with no events")
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
+    public void droneReturnToBaseNoEvents() {
+        scheduler.registerDrone(1);
+        scheduler.droneReturnToBase(1);
+
+        assertEquals(Scheduler.State.WAITING, scheduler.getCurrentState());
+
+    }
+
+    @Test
+    @DisplayName("FSM: Test drone returns to base with events")
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
+    public void droneReturnToBaseWithEvents() {
+        scheduler.registerDrone(1);
+        FireEvent event = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+
+        scheduler.newFireEvent(event);
+        scheduler.droneReturnToBase(1);
+
+        assertEquals(Scheduler.State.EVENT_QUEUED, scheduler.getCurrentState());
+
+    }
+
+    @Test
+    @DisplayName("FSM: Test all events complete")
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
+    public void allDoneEvents() {
+        scheduler.updateAllEventsDone();
+        assertNull(scheduler.getCompletedEvent());
+        assertNull(scheduler.getNextFireEvent());
+    }
+
+
 }

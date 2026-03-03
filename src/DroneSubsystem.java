@@ -153,6 +153,10 @@ public class DroneSubsystem implements Runnable {
         return computeReturn(event);
     }
 
+    public DroneState getDroneState() {
+        return state;
+    }
+
     public void toZoneCenter(FireEvent event) {
         Zone zone = scheduler.getZones().get(event.getZoneID());
         currentX = zone.getCenterX();
