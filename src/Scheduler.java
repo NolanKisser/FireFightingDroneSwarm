@@ -1,5 +1,10 @@
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.SocketException;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
@@ -34,6 +39,9 @@ public class Scheduler {
         public FaultType currentFault;
         public FireEvent currentMission;
 
+        public InetAddress address;
+        public int port;
+
         public DroneStatus(int id) {
             this.droneID = id;
             this.currentX = 0.0;
@@ -41,6 +49,9 @@ public class Scheduler {
             this.agentRemaining = 100.0; // Assume 100% capacity at start
             this.currentFault = FaultType.NONE;
             this.currentMission = null;
+
+            this.address = null;
+            this.port = 0;
         }
     }
 
@@ -58,6 +69,78 @@ public class Scheduler {
     private final Map<Integer, Zone> zones = new HashMap<>();
     private final DroneSwarmMonitor monitor;
 
+    // UDP
+    public int schedulerPort = 5000;
+    private DatagramSocket socket;
+
+    public void startUDPServer() {
+        try {
+            socket = new DatagramSocket(schedulerPort);
+            System.out.println("UDP Server listening on port " +  schedulerPort);
+            while(true) {
+                byte[] buffer = new byte[1024];
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                socket.receive(packet);
+
+                String message = new String(packet.getData(), 0, packet.getLength());
+                handleUDPMessage(message, packet.getAddress(), packet.getPort());
+
+            }
+
+        } catch (SocketException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private synchronized void handleUDPMessage(String message, InetAddress address, int port) {
+        try {
+            String[] messageParts = message.split(",");
+            switch (messageParts[0]) {
+                case "REGISTER_DRONE":
+                    //REGISTER_DRONE,id,address,port
+                    int droneID = Integer.parseInt(messageParts[1]);
+                    registerDrone(droneID, address, port);
+                    sendUDPMessage("REGISTERED, " + droneID, address, port);
+                    break;
+                case "FIRE_DETECTED":
+
+
+                    break;
+                case "ALL_EVENTS_DONE":
+                    break;
+                case "STATUS_UPDATE":
+                    break;
+                case "DRONE_ARRIVED":
+                    break;
+                case "DRONE_RETURN_TO_BASE":
+                    break;
+                case "DRONE_READY":
+                    break;
+                case "DRONE_COMPLETE_EVENT":
+                    break;
+                case "REQUEUE_EVENT":
+                    break;
+
+
+
+
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void sendUDPMessage(String message, InetAddress address, int port) {
+        try {
+            byte[] data =  message.getBytes();
+            DatagramPacket packet = new DatagramPacket(data, data.length, address, port);
+            socket.send(packet);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public Scheduler(String zoneFilePath) {
         this(zoneFilePath, null);
@@ -70,8 +153,13 @@ public class Scheduler {
     /**
      * Registers a drone in the scheduler's tracking system.
      */
-    public synchronized void registerDrone(int droneID) {
+    public synchronized void registerDrone(int droneID, InetAddress address, int port) {
         droneStatuses.putIfAbsent(droneID, new DroneStatus(droneID));
+
+        DroneStatus status = droneStatuses.get(droneID);
+        status.address = address;
+        status.port = port;
+
     }
 
     /**
