@@ -1,3 +1,6 @@
+import java.io.IOException;
+import java.net.*;
+
 /**
  * DroneSubsystem class represents a single firefighter drone.
  * The firefighter drone repeats the next incomplete FireEvent from the Scheduler and simulates
@@ -36,6 +39,11 @@ public class DroneSubsystem implements Runnable {
     private static final double MODERATE_VOLUME = 20.0;
     private static final double HIGH_VOLUME = 30.0;
 
+    private DatagramPacket sendPacket, receivePacket;
+    private DatagramSocket sendReceiveSocket;
+    int SCHEDULER_PORT = 6000;
+    String SCHEDULER_HOST = "localhost";
+
     /**
      * Constructor for DroneSubsystem
      * @param scheduler the shared scheduler
@@ -47,12 +55,26 @@ public class DroneSubsystem implements Runnable {
         transitionTo(DroneState.IDLE);
         // Register this drone with the scheduler's tracking system
         // this.scheduler.registerDrone(droneID);
+
+        try {
+            sendReceiveSocket = new DatagramSocket();
+        } catch (SocketException e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
     }
 
     public DroneSubsystem(int droneID) {
         this.scheduler = null;
         this.droneID = droneID;
         transitionTo(DroneState.IDLE);
+
+        try {
+            sendReceiveSocket = new DatagramSocket();
+        } catch (SocketException e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
     }
 
     public static void main(String[] args) {
@@ -60,13 +82,44 @@ public class DroneSubsystem implements Runnable {
         Thread droneThread1 = new Thread(drone1);
         droneThread1.start();
 
-        DroneSubsystem drone2 = new DroneSubsystem(3);
-        Thread droneThread2 = new Thread(drone2);
-        droneThread2.start();
+        // DroneSubsystem drone2 = new DroneSubsystem(2);
+        // Thread droneThread2 = new Thread(drone2);
+        // droneThread2.start();
     }
 
-    public void sendAndReceive() {
+    private String sendAndReceive(String message) {
+        sendOnly(message);
+        return receiveOnly();
+    }
 
+    private void sendOnly(String message) {
+        byte[] bytes = message.getBytes();
+
+        try {
+            sendPacket = new DatagramPacket(bytes, bytes.length, InetAddress.getByName(SCHEDULER_HOST), SCHEDULER_PORT);
+            sendReceiveSocket.send(sendPacket);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        System.out.println("[Drone " + droneID + "] sent message to scheduler");
+        System.out.println("[Drone " + droneID + "] message sent: " + message);
+    }
+
+    private String receiveOnly() {
+        receivePacket = new  DatagramPacket(new byte[1024], 1024);
+
+        try {
+            sendReceiveSocket.receive(receivePacket);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        String message = new String(receivePacket.getData(), 0, receivePacket.getLength());
+
+        System.out.println("[Drone " + droneID + "] received message from scheduler");
+        System.out.println("[Drone " + droneID + " ] message received:  " + message);
+        return message;
     }
 
     /**
@@ -194,8 +247,13 @@ public class DroneSubsystem implements Runnable {
      */
     @Override
     public void run() {
+        sendAndReceive("REGISTER_DRONE," + droneID);
+
+        /**
         boolean running = true;
         while(running) {
+
+
             // simulating travel, extinguish, and return time
             try {
                 switch (state) {
@@ -297,10 +355,13 @@ public class DroneSubsystem implements Runnable {
                         running = false; // End the thread for this faulted drone
                         break;
                 }
+
             } catch (InterruptedException e) {
                 e.printStackTrace();
                 running = false;
             }
+
         }
+         */
     }
 }
