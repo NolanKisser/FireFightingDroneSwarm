@@ -46,7 +46,27 @@ public class DroneSubsystem implements Runnable {
         this.droneID = droneID;
         transitionTo(DroneState.IDLE);
         // Register this drone with the scheduler's tracking system
-        this.scheduler.registerDrone(droneID);
+        // this.scheduler.registerDrone(droneID);
+    }
+
+    public DroneSubsystem(int droneID) {
+        this.scheduler = null;
+        this.droneID = droneID;
+        transitionTo(DroneState.IDLE);
+    }
+
+    public static void main(String[] args) {
+        DroneSubsystem drone1 = new DroneSubsystem(1);
+        Thread droneThread1 = new Thread(drone1);
+        droneThread1.start();
+
+        DroneSubsystem drone2 = new DroneSubsystem(3);
+        Thread droneThread2 = new Thread(drone2);
+        droneThread2.start();
+    }
+
+    public void sendAndReceive() {
+
     }
 
     /**
@@ -89,7 +109,7 @@ public class DroneSubsystem implements Runnable {
 
     private void transitionTo(DroneState newState) {
         this.state = newState;
-        scheduler.notifyDroneTransition(newState);
+//         scheduler.notifyDroneTransition(newState);
     }
 
     /**
@@ -180,7 +200,7 @@ public class DroneSubsystem implements Runnable {
             try {
                 switch (state) {
                     case IDLE:
-                        event = scheduler.getNextFireEvent();
+//                         event = scheduler.getNextFireEvent();
                         if (event == null) {
                             running = false; // Simulation complete
                         } else {
@@ -188,7 +208,7 @@ public class DroneSubsystem implements Runnable {
                             if (currentAgent < LOW_VOLUME) {
                                 System.out.printf("[Drone %d] Insufficient agent (%.1f%%). Must refill before accepting mission.\n", droneID, currentAgent);
                                 // Requeue the event since we can't handle it
-                                scheduler.newFireEvent(event);
+//                                 scheduler.newFireEvent(event);
                                 event = null;
                                 transitionTo(DroneState.RETURNING);
                             } else {
@@ -205,8 +225,8 @@ public class DroneSubsystem implements Runnable {
                         moveToZoneCenter(event);
 
                         // Push status update and notify arrival
-                        scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
-                        scheduler.droneArrivedAtZone(droneID, event);
+//                         scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
+//                         scheduler.droneArrivedAtZone(droneID, event);
                         transitionTo(DroneState.EXTINGUISHING);
                         break;
 
@@ -227,7 +247,7 @@ public class DroneSubsystem implements Runnable {
                         Thread.sleep((long) (dropTime * 10));
 
                         currentAgent -= volumeToDrop;
-                        scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
+//                         scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
 
                         // Physical Simulation: Close doors
                         System.out.printf("[Drone %d] Closing nozzle doors... (%.1fs)\n", droneID, NOZZLE_DOORS);
@@ -236,11 +256,11 @@ public class DroneSubsystem implements Runnable {
                         // Check if the drone successfully extinguished the fire
                         if (volumeToDrop >= requiredVolume) {
                             System.out.printf("[Drone %d] Successfully extinguished fire in Zone %d!\n", droneID, event.getZoneID());
-                            scheduler.completeFireEvent(event);
+//                             scheduler.completeFireEvent(event);
                         } else {
                             System.out.printf("[Drone %d] Ran out of agent! Fire in Zone %d not fully extinguished.\n", droneID, event.getZoneID());
                             // Re-queue the event so another drone can finish the job
-                            scheduler.newFireEvent(event);
+//                             scheduler.newFireEvent(event);
                         }
 
                         // Always return to base after a drop (can be optimized in future iterations to chain nearby fires)
@@ -254,7 +274,7 @@ public class DroneSubsystem implements Runnable {
 
                         Thread.sleep((long) (returnTime * 10)); // Scaled
                         moveToBase();
-                        scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
+//                         scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
 
                         transitionTo(DroneState.REFILLING);
                         break;
@@ -264,8 +284,8 @@ public class DroneSubsystem implements Runnable {
                         Thread.sleep(1500); // Simulate refill time
 
                         currentAgent = 100.0; // Agent replenished
-                        scheduler.droneReturnToBase(droneID); // Notify scheduler we are ready
-                        scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
+//                         scheduler.droneReturnToBase(droneID); // Notify scheduler we are ready
+//                         scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
 
                         transitionTo(DroneState.IDLE);
                         break;
