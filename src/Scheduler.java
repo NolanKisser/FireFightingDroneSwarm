@@ -93,6 +93,8 @@ public class Scheduler {
                 String message = new String(packet.getData(), 0, packet.getLength());
                 handleUDPMessage(message, packet.getAddress(), packet.getPort());
 
+                monitor.addLog("Scheduler", "Received: " + message);
+
             }
 
         } catch (SocketException e) {
@@ -110,7 +112,7 @@ public class Scheduler {
                     // REGISTER_DRONE,droneID,address,port
                     int droneID = Integer.parseInt(messageParts[1]);
                     registerDrone(droneID, address, port);
-                    sendUDPMessage("REGISTERED, " + droneID, address, port);
+                    sendUDPMessage("REGISTERED DRONE, " + droneID, address, port);
                     break;
                 case "FIRE_DETECTED":
                     // FIRE_DETECTED,time,zoneID,severity
@@ -135,7 +137,7 @@ public class Scheduler {
 
                     updateDroneStatus(statusDroneID, statusX, statusY, statusAgent);
                     break;
-                case "DRONE_ARRIVED":
+                case "DRONE_ARRIVE_TO_ZONE":
                     // DRONE_ARRIVED,droneID,time,zoneID,severity
                     break;
                 case "DRONE_RETURN_TO_BASE":
@@ -165,6 +167,8 @@ public class Scheduler {
             byte[] data =  message.getBytes();
             DatagramPacket packet = new DatagramPacket(data, data.length, address, port);
             socket.send(packet);
+
+            monitor.addLog("Scheduler", "Sent: " + message);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
