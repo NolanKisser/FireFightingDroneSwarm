@@ -70,8 +70,16 @@ public class Scheduler {
     private final DroneSwarmMonitor monitor;
 
     // UDP
-    public int schedulerPort = 5000;
+    public int schedulerPort = 6000;
     private DatagramSocket socket;
+
+    public static void main(String[] args) {
+        String zonesFilePath = "zone_file.csv";
+        DroneSwarmMonitor monitor = new DroneSwarmMonitor();
+        Scheduler scheduler = new Scheduler(zonesFilePath, monitor);
+        scheduler.startUDPServer();
+    }
+
 
     public void startUDPServer() {
         try {
@@ -99,28 +107,48 @@ public class Scheduler {
             String[] messageParts = message.split(",");
             switch (messageParts[0]) {
                 case "REGISTER_DRONE":
-                    //REGISTER_DRONE,id,address,port
+                    // REGISTER_DRONE,droneID,address,port
                     int droneID = Integer.parseInt(messageParts[1]);
                     registerDrone(droneID, address, port);
                     sendUDPMessage("REGISTERED, " + droneID, address, port);
                     break;
                 case "FIRE_DETECTED":
+                    // FIRE_DETECTED,time,zoneID,severity
+                    String fireTime =  messageParts[1];
+                    int fireZoneID = Integer.parseInt(messageParts[2]);
+                    FireEvent.Severity fireSeverity = FireEvent.Severity.valueOf(messageParts[3]);
 
-
+                    FireEvent newEvent = new FireEvent(fireTime, fireZoneID, FireEvent.Type.FIRE_DETECTED, fireSeverity);
+                    newFireEvent(newEvent);
                     break;
                 case "ALL_EVENTS_DONE":
+                    // ALL_EVENTS_DONE
+                    updateAllEventsDone();
                     break;
                 case "STATUS_UPDATE":
+                    // STATUS_UPDATE,droneId,state,x,y,agent
+                    int statusDroneID = Integer.parseInt(messageParts[1]);
+                    String statusDroneState =  messageParts[2];
+                    double statusX = Double.parseDouble(messageParts[3]);
+                    double statusY = Double.parseDouble(messageParts[4]);
+                    double statusAgent = Double.parseDouble(messageParts[5]);
+
+                    updateDroneStatus(statusDroneID, statusX, statusY, statusAgent);
                     break;
                 case "DRONE_ARRIVED":
+                    // DRONE_ARRIVED,droneID,time,zoneID,severity
                     break;
                 case "DRONE_RETURN_TO_BASE":
+                    // DRONE_RETURN_TO_BASE,droneID
                     break;
                 case "DRONE_READY":
+                    // DRONE_READY,droneID
                     break;
                 case "DRONE_COMPLETE_EVENT":
+                    // DRONE_COMPLETE_EVENT,droneID,time,zoneID,severity
                     break;
                 case "REQUEUE_EVENT":
+                    // REQUEUE_EVENT,droneID,time,zoneID,severity
                     break;
 
 
