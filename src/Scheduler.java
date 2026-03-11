@@ -7,10 +7,10 @@ import java.util.Queue;
 
 /**
  * Scheduler class communicates and synchronizes the FireIncidentSubsystem and the DroneSubsystem.
- * @author Jordan Grewal, Ozan Kaya, Nolan Kisser, Celina Yang
- * @version February 8, 2026
+ * Updated to use an active switch state machine.
+ * * @author Jordan Grewal, Ozan Kaya, Nolan Kisser, Celina Yang
  */
-public class Scheduler {
+public class Scheduler implements Runnable {
 
     public enum State {
         WAITING,
@@ -30,7 +30,7 @@ public class Scheduler {
         public int droneID;
         public double currentX;
         public double currentY;
-        public double agentRemaining; // Remaining firefighting agent
+        public double agentRemaining;
         public FaultType currentFault;
         public FireEvent currentMission;
 
@@ -38,7 +38,7 @@ public class Scheduler {
             this.droneID = id;
             this.currentX = 0.0;
             this.currentY = 0.0;
-            this.agentRemaining = 100.0; // Assume 100% capacity at start
+            this.agentRemaining = 100.0;
             this.currentFault = FaultType.NONE;
             this.currentMission = null;
         }
@@ -54,6 +54,7 @@ public class Scheduler {
     // Track statuses of all drones
     private final Map<Integer, DroneStatus> droneStatuses = new HashMap<>();
     private boolean allEventsDone = false;
+    private int activeDroneCount = 0; // Tracks how many drones are currently active
 
     private final Map<Integer, Zone> zones = new HashMap<>();
     private final DroneSwarmMonitor monitor;
@@ -67,9 +68,74 @@ public class Scheduler {
         this.monitor = monitor;
         loadZonesCSV(zoneFilePath);
     }
+
+    private void transitionTo(State newState) {
+        this.currentState = newState;
+        updateMonitorCounts();
+        System.out.println("[Scheduler] Transitioned to state: " + newState);
+    }
+
     /**
-     * Registers a drone in the scheduler's tracking system.
+     * Active state machine loop managing the Scheduler's states.
      */
+    @Override
+    public void run() {
+        boolean running = true;
+        while (running) {
+            synchronized (this) {
+                try {
+                    switch (currentState) {
+                        case WAITING:
+                            // Wait until an event is added or the simulation is completely done
+                            while (incompleteEvents.isEmpty() && !allEventsDone) {
+                                wait();
+                            }
+
+                            if (allEventsDone && incompleteEvents.isEmpty() && activeDroneCount == 0) {
+                                running = false; // Simulation is finished
+                            } else if (!incompleteEvents.isEmpty()) {
+                                transitionTo(State.EVENT_QUEUED);
+                            }
+                            break;
+
+                        case EVENT_QUEUED:
+                            // We have events in the queue. Notify drones so they can pick them up.
+                            notifyAll();
+
+                            // Wait until a drone takes an event or the queue empties
+                            while (!incompleteEvents.isEmpty() && activeDroneCount == 0) {
+                                wait();
+                            }
+
+                            if (activeDroneCount > 0) {
+                                transitionTo(State.DRONE_ACTIVE);
+                            } else if (incompleteEvents.isEmpty()) {
+                                transitionTo(State.WAITING);
+                            }
+                            break;
+
+                        case DRONE_ACTIVE:
+                            // Wait while drones are actively working on events
+                            while (activeDroneCount > 0) {
+                                wait();
+                            }
+
+                            // Once all active drones return, check if more events are pending
+                            if (!incompleteEvents.isEmpty()) {
+                                transitionTo(State.EVENT_QUEUED);
+                            } else {
+                                transitionTo(State.WAITING);
+                            }
+                            break;
+                    }
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                    running = false;
+                }
+            }
+        }
+    }
+
     public synchronized void registerDrone(int droneID) {
         droneStatuses.putIfAbsent(droneID, new DroneStatus(droneID));
     }
@@ -80,11 +146,8 @@ public class Scheduler {
      */
     public synchronized void newFireEvent(FireEvent fireEvent) {
         incompleteEvents.add(fireEvent);
-        if (currentState == State.WAITING) {
-            currentState = State.EVENT_QUEUED;
-        }
         updateMonitorCounts();
-        notifyAll();
+        notifyAll(); // Wake up the scheduler state machine
     }
 
     /**
@@ -96,7 +159,6 @@ public class Scheduler {
 
         while(incompleteEvents.isEmpty() && !allEventsDone) {
             try {
-                currentState = State.WAITING;
                 wait();
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -107,9 +169,9 @@ public class Scheduler {
             return null;
         }
 
-        currentState = State.DRONE_ACTIVE;
         FireEvent nextEvent = incompleteEvents.poll();
-
+        activeDroneCount++; // A drone has picked up an event
+        notifyAll(); // Wake up the scheduler state machine to process transition
         return nextEvent;
     }
 
@@ -127,9 +189,6 @@ public class Scheduler {
         }
     }
 
-    /**
-     * Handles faults reported by a drone or detected via communication timeouts.
-     */
     public synchronized void reportFault(int droneID, FaultType fault) {
         DroneStatus status = droneStatuses.get(droneID);
         if (status != null) {
@@ -141,7 +200,8 @@ public class Scheduler {
                 System.out.println("[Scheduler] Re-queuing event from failed Drone " + droneID);
                 incompleteEvents.add(status.currentMission);
                 status.currentMission = null;
-                notifyAll(); // Wake up other available drones to take this event
+                activeDroneCount--;
+                notifyAll();
             }
         }
     }
@@ -152,7 +212,6 @@ public class Scheduler {
      * @param fireEvent The event being serviced
      */
     public synchronized void droneArrivedAtZone(int droneID, FireEvent fireEvent) {
-        // in future iterations with multi-drone, we update specific drone status here
         System.out.println("[Scheduler] Notification: Drone " + droneID + " arrived at Zone " + fireEvent.getZoneID());
     }
 
@@ -163,12 +222,8 @@ public class Scheduler {
             status.currentMission = null;
             status.agentRemaining = 100.0;
         }
-
-        if (!incompleteEvents.isEmpty()) {
-            currentState = State.EVENT_QUEUED;
-        } else {
-            currentState = State.WAITING;
-        }
+        activeDroneCount--; // Drone is no longer actively working on a mission
+        notifyAll(); // Wake up the scheduler state machine to evaluate transitions
     }
     /**
      * Update boolean when all events are complete
@@ -264,7 +319,4 @@ public class Scheduler {
     public State getCurrentState() {
         return currentState;
     }
-
-
-
 }
