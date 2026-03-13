@@ -84,6 +84,7 @@ public class Scheduler {
     public void startUDPServer() {
         try {
             socket = new DatagramSocket(schedulerPort);
+            monitor.addLog("Scheduler", "UDP Server listening on port " + schedulerPort);
             System.out.println("UDP Server listening on port " +  schedulerPort);
             while(true) {
                 byte[] buffer = new byte[1024];
@@ -91,9 +92,10 @@ public class Scheduler {
                 socket.receive(packet);
 
                 String message = new String(packet.getData(), 0, packet.getLength());
+                monitor.addLog("Scheduler", "Received: " + message);
+
                 handleUDPMessage(message, packet.getAddress(), packet.getPort());
 
-                monitor.addLog("Scheduler", "Received: " + message);
 
             }
 
@@ -122,10 +124,12 @@ public class Scheduler {
 
                     FireEvent newEvent = new FireEvent(fireTime, fireZoneID, FireEvent.Type.FIRE_DETECTED, fireSeverity);
                     newFireEvent(newEvent);
+                    sendUDPMessage("NEW EVENT REGISTERED, ", address, port);
                     break;
                 case "ALL_EVENTS_DONE":
                     // ALL_EVENTS_DONE
                     updateAllEventsDone();
+                    sendUDPMessage("ALL_EVENTS_DONE, ", address, port);
                     break;
                 case "STATUS_UPDATE":
                     // STATUS_UPDATE,droneId,state,x,y,agent
@@ -182,6 +186,8 @@ public class Scheduler {
         this.monitor = monitor;
         loadZonesCSV(zoneFilePath);
     }
+
+
     /**
      * Registers a drone in the scheduler's tracking system.
      */
