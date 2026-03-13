@@ -1,5 +1,9 @@
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 
 /**
  * FireIncidentSubsystem class reads the fire events from the given CSV event file and sends to
@@ -9,17 +13,27 @@ import java.io.FileReader;
  */
 public class FireIncidentSubsystem implements Runnable {
 
-    private final Scheduler scheduler;
+    // private final Scheduler scheduler;
     private final String filePath;
+
+    private DatagramPacket sendPacket, receivePacket;
+    private DatagramSocket sendReceiveSocket;
+    int SCHEDULER_PORT = 6000;
+    String SCHEDULER_HOST = "localhost";
 
     /**
      * Constructor for FireIncidentSubsystem
-     * @param scheduler the shared scheduler
      * @param filePath the path to the CSV event file
      */
-    public FireIncidentSubsystem(Scheduler scheduler, String filePath) {
-        this.scheduler = scheduler;
+    public FireIncidentSubsystem(String filePath) {
+        // this.scheduler = scheduler;
         this.filePath = filePath;
+
+        try {
+            sendReceiveSocket = new DatagramSocket();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -39,11 +53,38 @@ public class FireIncidentSubsystem implements Runnable {
                 FireEvent.Severity severity = FireEvent.Severity.valueOf(row[3].trim());
 
                 FireEvent event = new FireEvent(time, zoneID, type, severity);
-                scheduler.newFireEvent(event);
+                sendFireEvent(event);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private void sendFireEvent(FireEvent event) {
+        String message = "FIRE_DETECTED," + event.getTime() + "," + event.getZoneID() + "," + event.getSeverity();
+        byte[] bytes = message.getBytes();
+
+        try {
+            sendPacket = new DatagramPacket(bytes, bytes.length, InetAddress.getByName(SCHEDULER_HOST), SCHEDULER_PORT);
+            sendReceiveSocket.send(sendPacket);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        System.out.println("[New Fire Incident]: sent message to scheduler");
+        System.out.println("[New Fire Incident] message sent: " + message);
+    }
+
+    private void sendMessage(String message) {
+        byte[] bytes = message.getBytes();
+
+        try {
+            sendPacket = new DatagramPacket(bytes, bytes.length, InetAddress.getByName(SCHEDULER_HOST), SCHEDULER_PORT);
+            sendReceiveSocket.send(sendPacket);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
 
     /**
@@ -54,14 +95,16 @@ public class FireIncidentSubsystem implements Runnable {
     public void run() {
         loadCSV(filePath);
 
-        scheduler.updateAllEventsDone();
+        sendMessage("ALL_EVENTS_DONE");
+        // scheduler.updateAllEventsDone();
 
-        while(true) {
-            FireEvent completed = scheduler.getCompletedEvent();
-            if(completed == null) {
-                break;
-            }
-        }
+
+    }
+
+    public static void main(String[] args) {
+        String csvFilePath = "event_file.csv";
+        Thread fireincidentsubsystem = new Thread(new FireIncidentSubsystem(csvFilePath));
+        fireincidentsubsystem.start();
 
     }
 }
