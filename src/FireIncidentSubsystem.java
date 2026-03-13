@@ -75,18 +75,6 @@ public class FireIncidentSubsystem implements Runnable {
         System.out.println("[New Fire Incident] message sent: " + message);
     }
 
-    private void sendMessage(String message) {
-        byte[] bytes = message.getBytes();
-
-        try {
-            sendPacket = new DatagramPacket(bytes, bytes.length, InetAddress.getByName(SCHEDULER_HOST), SCHEDULER_PORT);
-            sendReceiveSocket.send(sendPacket);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-    }
-
     /**
      * The subsystem signals the scheduler after submitting all events from the CSV file and waits
      * for completion.
@@ -95,7 +83,6 @@ public class FireIncidentSubsystem implements Runnable {
     public void run() {
         loadCSV(filePath);
 
-        sendMessage("ALL_EVENTS_DONE");
         // scheduler.updateAllEventsDone();
 
 
