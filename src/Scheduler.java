@@ -100,9 +100,9 @@ public class Scheduler {
             }
 
         } catch (SocketException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
     }
 
@@ -114,7 +114,7 @@ public class Scheduler {
                     // REGISTER_DRONE,droneID,address,port
                     int droneID = Integer.parseInt(messageParts[1]);
                     registerDrone(droneID, address, port);
-                    sendUDPMessage("REGISTERED DRONE, " + droneID, address, port);
+                    sendUDPMessage("REGISTERED_DRONE," + droneID, address, port);
                     break;
                 case "FIRE_DETECTED":
                     // FIRE_DETECTED,time,zoneID,severity
@@ -124,12 +124,11 @@ public class Scheduler {
 
                     FireEvent newEvent = new FireEvent(fireTime, fireZoneID, FireEvent.Type.FIRE_DETECTED, fireSeverity);
                     newFireEvent(newEvent);
-                    sendUDPMessage("NEW EVENT REGISTERED, ", address, port);
                     break;
                 case "ALL_EVENTS_DONE":
                     // ALL_EVENTS_DONE
                     updateAllEventsDone();
-                    sendUDPMessage("ALL_EVENTS_DONE, ", address, port);
+                    sendUDPMessage("ALL FIRES EXTINGUISHED,", address, port);
                     break;
                 case "STATUS_UPDATE":
                     // STATUS_UPDATE,droneId,state,x,y,agent
@@ -149,9 +148,34 @@ public class Scheduler {
                     break;
                 case "DRONE_READY":
                     // DRONE_READY,droneID
+                    droneID = Integer.parseInt(messageParts[1]);
+
+                    if(incompleteEvents.isEmpty()) {
+                        if(allEventsDone) {
+                            sendUDPMessage("ALL_EVENTS_COMPLETE,", address, port);
+                        } else {
+                            sendUDPMessage("NO_EVENTS_AVAILABLE,", address, port);
+                            Thread.sleep(2500);
+                        }
+                        currentState = State.WAITING;
+                    } else {
+                        FireEvent event = incompleteEvents.poll();
+
+                        DroneStatus status = droneStatuses.get(droneID);
+                        if(status != null) {
+                            status.currentMission = event;
+                        }
+
+                        String newMessage = "ASSIGN_EVENT," + event.getTime() + "," + event.getZoneID() + "," + event.getSeverity();
+
+                        sendUDPMessage(newMessage, address, port);
+                        currentState = State.DRONE_ACTIVE;
+                    }
+
                     break;
                 case "DRONE_COMPLETE_EVENT":
                     // DRONE_COMPLETE_EVENT,droneID,time,zoneID,severity
+                    droneID = Integer.parseInt(messageParts[1]);
                     break;
                 case "REQUEUE_EVENT":
                     // REQUEUE_EVENT,droneID,time,zoneID,severity
@@ -162,7 +186,7 @@ public class Scheduler {
 
             }
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
     }
 
