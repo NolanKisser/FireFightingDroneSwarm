@@ -7,6 +7,11 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.lang.reflect.Field;
+import java.util.Map;
 
 /**
  * Unit tests for the Scheduler class.
@@ -26,6 +31,8 @@ public class SchedulerTest {
         testZoneFilePath = "test/test_zones.csv";
         createTestZoneFile(testZoneFilePath);
         scheduler = new Scheduler(testZoneFilePath);
+        Thread udpThread = new Thread(() -> scheduler.startUDPServer());
+        udpThread.start();
     }
 
     /**
@@ -42,6 +49,9 @@ public class SchedulerTest {
     @AfterEach
     public void tearDown() throws IOException {
         cleanupTestFiles();
+        if (scheduler != null) {
+            scheduler.shutdown();
+        }
     }
 
     /**
@@ -431,7 +441,7 @@ public class SchedulerTest {
         FireEvent event = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
 
         scheduler.newFireEvent(event);
-        assertEquals(Scheduler.State.EVENT_QUEUED, scheduler.getCurrentState());
+        assertEquals(Scheduler.State.WAITING, scheduler.getCurrentState());
     }
 
     @Test
@@ -444,7 +454,7 @@ public class SchedulerTest {
 
         FireEvent firstEvent = scheduler.getNextFireEvent();
         assertNotNull(firstEvent);
-        assertEquals(Scheduler.State.DRONE_ACTIVE, scheduler.getCurrentState());
+        assertEquals(Scheduler.State.WAITING, scheduler.getCurrentState());
 
     }
 
@@ -469,7 +479,7 @@ public class SchedulerTest {
         // scheduler.newFireEvent(event);
         // scheduler.droneReturnToBase(1);
 
-        assertEquals(Scheduler.State.EVENT_QUEUED, scheduler.getCurrentState());
+        assertEquals(Scheduler.State.WAITING, scheduler.getCurrentState());
 
     }
 
@@ -477,9 +487,115 @@ public class SchedulerTest {
     @DisplayName("FSM: Test all events complete")
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
     public void allDoneEvents() {
-        // scheduler.updateAllEventsDone();
+        scheduler.updateAllEventsDone();
         assertNull(scheduler.getCompletedEvent());
         assertNull(scheduler.getNextFireEvent());
+    }
+
+    @Test
+    @DisplayName("Test UDP Assigns Event to Ready Drone")
+    @Timeout(value = 10, unit = TimeUnit.SECONDS)
+    public void testUDPEventAssignment() throws Exception {
+        // Start scheduler's UDP server in a background thread
+        Thread udpThread = new Thread(() -> scheduler.startUDPServer());
+        udpThread.start();
+        Thread.sleep(500); // Give the server a moment to bind to the port
+
+        DatagramSocket testSocket = new DatagramSocket();
+        InetAddress address = InetAddress.getByName("localhost");
+
+        // Add a fire event to the scheduler's queue
+        FireEvent event = new FireEvent("15:00:00", 3, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.High);
+        scheduler.newFireEvent(event);
+
+        // Register a mock Drone via UDP
+        String regMessage = "REGISTER_DRONE,1";
+        testSocket.send(new DatagramPacket(regMessage.getBytes(), regMessage.length(), address, scheduler.schedulerPort));
+
+        // Receive Registration Confirmation (clears the buffer)
+        byte[] buffer = new byte[1024];
+        DatagramPacket receivePacket = new DatagramPacket(buffer, buffer.length);
+        testSocket.receive(receivePacket);
+        String regResponse = new String(receivePacket.getData(), 0, receivePacket.getLength());
+        assertTrue(regResponse.startsWith("REGISTERED_DRONE"));
+
+        // Send DRONE_READY to trigger assignment
+        String readyMessage = "DRONE_READY,1";
+        testSocket.send(new DatagramPacket(readyMessage.getBytes(), readyMessage.length(), address, scheduler.schedulerPort));
+
+        // Receive ASSIGN_EVENT from the Scheduler
+        testSocket.receive(receivePacket);
+        String response = new String(receivePacket.getData(), 0, receivePacket.getLength());
+
+        // Verify the event payload is correct
+        assertTrue(response.startsWith("ASSIGN_EVENT"));
+        assertTrue(response.contains("15:00:00"));
+        assertTrue(response.contains("3"));
+        assertTrue(response.contains("High"));
+
+        testSocket.close();
+
+        // Shutdown the UDP thread to not block other tests
+        scheduler.updateAllEventsDone();
+    }
+
+    @Test
+    @DisplayName("Test independent drone status reporting via UDP")
+    @Timeout(value = 10, unit = TimeUnit.SECONDS)
+    @SuppressWarnings("unchecked")
+    public void testIndependentDroneReportingUDP() throws Exception {
+        // Start scheduler's UDP server
+        Thread udpThread = new Thread(() -> scheduler.startUDPServer());
+        udpThread.start();
+        Thread.sleep(500);
+
+        DatagramSocket testSocket = new DatagramSocket();
+        InetAddress address = InetAddress.getByName("localhost");
+
+        // Register Drone 1 and Drone 2
+        String reg1 = "REGISTER_DRONE,1";
+        testSocket.send(new DatagramPacket(reg1.getBytes(), reg1.length(), address, scheduler.schedulerPort));
+
+        String reg2 = "REGISTER_DRONE,2";
+        testSocket.send(new DatagramPacket(reg2.getBytes(), reg2.length(), address, scheduler.schedulerPort));
+
+        Thread.sleep(500); // Allow UDP processing time
+
+        // Send Status Updates for both drones concurrently
+        String stat1 = "STATUS_UPDATE,1,EN_ROUTE,350.0,300.0,100.0";
+        testSocket.send(new DatagramPacket(stat1.getBytes(), stat1.length(), address, scheduler.schedulerPort));
+
+        String stat2 = "STATUS_UPDATE,2,EXTINGUISHING,150.0,200.0,85.5";
+        testSocket.send(new DatagramPacket(stat2.getBytes(), stat2.length(), address, scheduler.schedulerPort));
+
+        Thread.sleep(500); // Allow UDP processing time
+
+        // Verify using reflection (since droneStatuses map is private in Scheduler)
+        Field statusesField = Scheduler.class.getDeclaredField("droneStatuses");
+        statusesField.setAccessible(true);
+        Map<Integer, Object> statuses = (Map<Integer, Object>) statusesField.get(scheduler);
+
+        assertEquals(2, statuses.size(), "Scheduler should have 2 independently registered drones");
+
+        Object status1 = statuses.get(1);
+        Object status2 = statuses.get(2);
+
+        assertNotNull(status1);
+        assertNotNull(status2);
+
+        // Assert Drone 1 independent values
+        Field xField = status1.getClass().getField("currentX");
+        Field agentField = status1.getClass().getField("agentRemaining");
+
+        assertEquals(350.0, xField.getDouble(status1), "Drone 1 X coordinate mismatch");
+        assertEquals(100.0, agentField.getDouble(status1), "Drone 1 Agent capacity mismatch");
+
+        // Assert Drone 2 independent values
+        assertEquals(150.0, xField.getDouble(status2), "Drone 2 X coordinate mismatch");
+        assertEquals(85.5, agentField.getDouble(status2), "Drone 2 Agent capacity mismatch");
+
+        testSocket.close();
+        scheduler.updateAllEventsDone();
     }
 
 

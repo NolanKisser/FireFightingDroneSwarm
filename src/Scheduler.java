@@ -107,7 +107,9 @@ public class Scheduler implements Runnable {
     public void startUDPServer() {
         try {
             socket = new DatagramSocket(schedulerPort);
-            monitor.addLog("Scheduler", "UDP Server listening on port " + schedulerPort);
+            if (monitor != null){
+                monitor.addLog("Scheduler", "UDP Server listening on port " + schedulerPort);
+            }
             System.out.println("UDP Server listening on port " +  schedulerPort);
             while(udpRunning) {
                 byte[] buffer = new byte[1024];
@@ -115,7 +117,9 @@ public class Scheduler implements Runnable {
                 socket.receive(packet);
 
                 String message = new String(packet.getData(), 0, packet.getLength());
-                monitor.addLog("Scheduler", "Received: " + message);
+                if (monitor != null){
+                    monitor.addLog("Scheduler", "Received: " + message);
+                }
 
                 handleUDPMessage(message, packet.getAddress(), packet.getPort());
 
@@ -203,30 +207,38 @@ public class Scheduler implements Runnable {
                     System.out.println("DRONE READY ---------> " + allEventsDone );
 
                     DroneStatus readyStatus = droneStatuses.get(droneID);
-                    if(!allEventsDone) {
+                    if (readyStatus != null) {
+                        readyStatus.address = address;
+                        readyStatus.port = port;
+                    }
+
+                    // FIX: Check if there are events in the queue FIRST
+                    if (!incompleteEvents.isEmpty()) {
+                        FireEvent event = incompleteEvents.poll();
                         if (readyStatus != null) {
-                            readyStatus.address = address;
-                            readyStatus.port = port;
-
-                            if (!incompleteEvents.isEmpty()) {
-                                FireEvent event = incompleteEvents.poll();
-                                readyStatus.currentMission = event;
-                                readyStatus.waitingForEvent = false;
-                                activeDroneCount++;
-
-                                String newMessage = "ASSIGN_EVENT," +
-                                        event.getTime() + "," +
-                                        event.getZoneID() + "," +
-                                        event.getSeverity();
-
-                                sendUDPMessage(newMessage, address, port);
-                                System.out.println("[Scheduler] Assigned event to drone " + droneID);
-                            } else {
-                                readyStatus.waitingForEvent = true;
-                                System.out.println("[Scheduler] Drone " + droneID + " is waiting for an event.");
-                            }
+                            readyStatus.currentMission = event;
+                            readyStatus.waitingForEvent = false;
                         }
+                        activeDroneCount++;
+
+                        String newMessage = "ASSIGN_EVENT," +
+                                event.getTime() + "," +
+                                event.getZoneID() + "," +
+                                event.getSeverity();
+
+                        sendUDPMessage(newMessage, address, port);
+                        System.out.println("[Scheduler] Assigned event to drone " + droneID);
+                        notifyAll(); // Wake up the scheduler state machine thread
+
+                    } else if (!allEventsDone) {
+                        // Queue is empty, but producer is still working
+                        if (readyStatus != null) {
+                            readyStatus.waitingForEvent = true;
+                        }
+                        System.out.println("[Scheduler] Drone " + droneID + " is waiting for an event.");
+
                     } else {
+                        // Queue is empty AND producer is done
                         sendUDPMessage("ALL_EVENTS_COMPLETE,", address, port);
                     }
                     break;
@@ -262,11 +274,15 @@ public class Scheduler implements Runnable {
 
     private void sendUDPMessage(String message, InetAddress address, int port) {
         try {
+            if (socket == null || socket.isClosed()) return;
+
             byte[] data =  message.getBytes();
             DatagramPacket packet = new DatagramPacket(data, data.length, address, port);
             socket.send(packet);
 
-            monitor.addLog("Scheduler", "Sent: " + message);
+            if (monitor != null){
+                monitor.addLog("Scheduler", "Sent: " + message);
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -295,6 +311,12 @@ public class Scheduler implements Runnable {
                             }
 
                             if (allEventsDone && incompleteEvents.isEmpty() && activeDroneCount == 0) {
+                                for (DroneStatus status : droneStatuses.values()) {
+                                    if (status.address != null) {
+                                        sendUDPMessage("ALL_EVENTS_COMPLETE,", status.address, status.port);
+                                    }
+                                }
+                                try { Thread.sleep(200); } catch (InterruptedException e) {}
                                 running = false; // Simulation is finished
                                 udpRunning = false;
                                 if (socket != null && !socket.isClosed()) {
@@ -564,5 +586,20 @@ public class Scheduler implements Runnable {
 
     public State getCurrentState() {
         return currentState;
+    }
+
+    /**
+     * Forcefully shuts down the UDP server and closes the socket.
+     * Crucial for freeing up the port between JUnit tests.
+     */
+    public void shutdown() {
+        this.udpRunning = false;
+        this.allEventsDone = true;
+        if (this.socket != null && !this.socket.isClosed()) {
+            this.socket.close();
+        }
+        synchronized (this) {
+            notifyAll(); // Wake up any threads stuck waiting for events
+        }
     }
 }
