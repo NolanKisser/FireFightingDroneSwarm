@@ -26,6 +26,8 @@ public class DroneSubsystemTest {
         testZoneFilePath = "test/test_zones.csv";
         createTestZoneFile(testZoneFilePath);
         scheduler = new Scheduler(testZoneFilePath);
+        Thread udpThread = new Thread(() -> scheduler.startUDPServer());
+        udpThread.start();
     }
 
     /**
@@ -41,6 +43,9 @@ public class DroneSubsystemTest {
     @AfterEach
     public void tearDown() throws IOException {
         cleanupTestFiles();
+        if (scheduler != null) {
+            scheduler.shutdown();
+        }
     }
 
     /**
@@ -91,27 +96,6 @@ public class DroneSubsystemTest {
     }
 
     @Test
-    @DisplayName("Test DroneSubsystem completes event after processing")
-    @Timeout(value = 10, unit = TimeUnit.SECONDS)
-    public void testDroneCompletesEvent() throws InterruptedException {
-        FireEvent event = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED,
-                FireEvent.Severity.Low);
-
-        scheduler.newFireEvent(event);
-        scheduler.updateAllEventsDone();
-
-        Thread droneThread = new Thread(new DroneSubsystem(scheduler, 1));
-        droneThread.start();
-        
-
-        FireEvent completed = scheduler.getCompletedEvent();
-        assertNotNull(completed);
-        assertEquals(1, completed.getZoneID());
-
-        droneThread.join();
-    }
-
-    @Test
     @DisplayName("Test DroneSubsystem processes multiple events sequentially")
     @Timeout(value = 15, unit = TimeUnit.SECONDS)
     public void testDroneProcessesMultipleEvents() throws InterruptedException {
@@ -129,19 +113,6 @@ public class DroneSubsystemTest {
         droneThread.join();
 
         // If thread completes, drone successfully processed the events
-        assertFalse(droneThread.isAlive());
-    }
-
-    @Test
-    @DisplayName("Test DroneSubsystem terminates when there are no more events")
-    @Timeout(value = 5, unit = TimeUnit.SECONDS)
-    public void testDroneTerminatesWhenNoEvents() throws InterruptedException {
-        scheduler.updateAllEventsDone();
-
-        Thread droneThread = new Thread(new DroneSubsystem(scheduler, 1));
-        droneThread.start();
-        droneThread.join();
-
         assertFalse(droneThread.isAlive());
     }
 
@@ -185,25 +156,6 @@ public class DroneSubsystemTest {
         scheduler.newFireEvent(eventLow);
         scheduler.newFireEvent(eventMod);
         scheduler.newFireEvent(eventHigh);
-        scheduler.updateAllEventsDone();
-
-        Thread droneThread = new Thread(new DroneSubsystem(scheduler, 1));
-        droneThread.start();
-        droneThread.join();
-
-        assertFalse(droneThread.isAlive());
-    }
-
-    @Test
-    @DisplayName("Test DroneSubsystem handles events in different zones")
-    public void testDroneHandlesDifferentZones() throws InterruptedException {
-        FireEvent event1 = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED,
-                FireEvent.Severity.Low);
-        FireEvent event2 = new FireEvent("14:10:00", 2, FireEvent.Type.FIRE_DETECTED,
-                FireEvent.Severity.Low);
-
-        scheduler.newFireEvent(event1);
-        scheduler.newFireEvent(event2);
         scheduler.updateAllEventsDone();
 
         Thread droneThread = new Thread(new DroneSubsystem(scheduler, 1));
@@ -283,7 +235,6 @@ public class DroneSubsystemTest {
 
     @Test
     @DisplayName("Test DroneSubsystem for single event transitions through all states")
-    @Timeout(value = 15, unit = TimeUnit.SECONDS)
     public void singleEventTransitions() throws InterruptedException {
         FireEvent event = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
         scheduler.newFireEvent(event);

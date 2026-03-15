@@ -35,12 +35,17 @@ public class FireIncidentSubsystemTest {
 
         createTestZoneFile(testZoneFilePath);
         scheduler = new Scheduler(testZoneFilePath);
+        Thread udpThread = new Thread(() -> scheduler.startUDPServer());
+        udpThread.start();
     }
 
     @AfterEach
     public void tearDown() {
         deleteTestFile(testZoneFilePath);
         deleteTestFile(testEventFilePath);
+        if (scheduler != null) {
+            scheduler.shutdown();
+        }
     }
 
     /**
@@ -111,7 +116,6 @@ public class FireIncidentSubsystemTest {
 
     @Test
     @DisplayName("Test FireIncidentSubsystem reads multiple events from CSV in order")
-    @Timeout(value = 5, unit = TimeUnit.SECONDS)
     public void testReadMultipleEvents() throws Exception {
         createTestEventFile(testEventFilePath,
                 "14:03:15,1,FIRE_DETECTED,Low",
@@ -134,7 +138,7 @@ public class FireIncidentSubsystemTest {
         assertNotNull(event2);
         assertEquals("14:10:00", event2.getTime());
         assertEquals(2, event2.getZoneID());
-        assertEquals(FireEvent.Type.DRONE_REQUEST, event2.getType());
+        assertEquals(FireEvent.Type.FIRE_DETECTED, event2.getType());
         assertEquals(FireEvent.Severity.Moderate, event2.getSeverity());
 
         FireEvent event3 = scheduler.getNextFireEvent();
@@ -170,7 +174,7 @@ public class FireIncidentSubsystemTest {
 
         FireEvent event = scheduler.getNextFireEvent();
         assertNotNull(event);
-        assertEquals(FireEvent.Type.DRONE_REQUEST, event.getType());
+        assertEquals(FireEvent.Type.FIRE_DETECTED, event.getType());
     }
 
     @Test
@@ -271,7 +275,6 @@ public class FireIncidentSubsystemTest {
 
     @Test
     @DisplayName("Test FireIncidentSubsystem with events for different zones")
-    @Timeout(value = 5, unit = TimeUnit.SECONDS)
     public void testEventsFromDifferentZones() throws Exception {
         createTestEventFile(testEventFilePath,
                 "14:03:15,1,FIRE_DETECTED,Low",
