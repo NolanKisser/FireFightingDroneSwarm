@@ -1,3 +1,4 @@
+import javax.lang.model.util.SimpleElementVisitor14;
 import java.io.IOException;
 import java.net.*;
 
@@ -46,8 +47,8 @@ public class DroneSubsystem implements Runnable {
 
 
 
-    public DroneSubsystem(int droneID) {
-        this.scheduler = null;
+    public DroneSubsystem(Scheduler scheduler, int droneID) {
+        this.scheduler = scheduler;
         this.droneID = droneID;
         transitionTo(DroneState.IDLE);
 
@@ -60,7 +61,9 @@ public class DroneSubsystem implements Runnable {
     }
 
     public static void main(String[] args) {
-        DroneSubsystem drone1 = new DroneSubsystem(1);
+
+        Scheduler scheduler = new Scheduler("zone_file.csv");
+        DroneSubsystem drone1 = new DroneSubsystem(scheduler, 1);
         Thread droneThread1 = new Thread(drone1);
         droneThread1.start();
 
@@ -228,14 +231,14 @@ public class DroneSubsystem implements Runnable {
             case IDLE:
                 String message = sendAndReceive("DRONE_READY," + droneID);
                 String[] parts =  message.split(",");
-                if(parts[0].equals("ALL_EVENTS_COMPLETE")) {
-
-                } else if (parts[0].equals("ASSIGN_EVENT")) {
+                if (parts[0].equals("ASSIGN_EVENT")) {
+                    System.out.println("RECEIVE ASSIGN");
                     String time = parts[1];
                     int zoneID = Integer.parseInt(parts[2]);
                     FireEvent.Severity severity = FireEvent.Severity.valueOf(parts[3]);
 
                     event = new FireEvent(time, zoneID, FireEvent.Type.FIRE_DETECTED, severity);
+                    state = DroneState.EN_ROUTE;
 
                     // Check if drone has enough agent to take on a mission
                     if (currentAgent < LOW_VOLUME) {
@@ -260,7 +263,7 @@ public class DroneSubsystem implements Runnable {
 
                 // Push status update and notify arrival
                 sendOnly("STATUS_UPDATE," + droneID + "," + state + "," + currentX + "," + currentY + "," + currentAgent);
-                sendOnly("DRONE_ARRIVE_TO_DONE," + droneID + "," + event.getTime() + "," + event.getZoneID() + "," + event.getSeverity());
+                sendOnly("DRONE_ARRIVE_TO_ZONE," + droneID + "," + event.getTime() + "," + event.getZoneID() + "," + event.getSeverity());
 //                         scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
 //                         scheduler.droneArrivedAtZone(droneID, event);
                 transitionTo(DroneState.EXTINGUISHING);

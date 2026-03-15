@@ -16,7 +16,7 @@ public class Main {
 
         // create subsystem threads for fire incident and drone
         Thread fireincidentsubsystem = new Thread(new FireIncidentSubsystem(csvFilePath));
-        Thread dronesubsystem = new Thread(new DroneSubsystem(1));
+        Thread dronesubsystem = new Thread(new DroneSubsystem(scheduler, 1));
         fireincidentsubsystem.start();
         dronesubsystem.start();
         monitor.addLog("SYSTEM", "Started");

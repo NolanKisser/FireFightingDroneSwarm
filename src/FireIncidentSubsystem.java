@@ -47,6 +47,8 @@ public class FireIncidentSubsystem implements Runnable {
             while((line = br.readLine()) != null) {
                 String[] row = line.split(",");
 
+                Thread.sleep((int)(Math.random() * 5000));
+
                 String time = row[0].trim();
                 int zoneID = Integer.parseInt(row[1].trim());
                 FireEvent.Type type = FireEvent.Type.valueOf(row[2].trim());
