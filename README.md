@@ -12,10 +12,12 @@ This project simulates a swarm of autonomous drones designed to detect and extin
 * **Drone Lifecycle:** The `DroneSubsystem` operates using defined states (`IDLE`, `EN_ROUTE`, `EXTINGUISHING`, `RETURNING`) to display drone behaviour.
 * **Scheduler Logic:** The `Scheduler` now maintains operational states (`WAITING`, `EVENT_QUEUED`, `DRONE_ACTIVE`) to model system activity.
 
+**Iteration 3**
+* **UDP Networking:** Full transition from local thread-based communication to Datagram-based networking between subsystems
+* **Scheduler Logic**: Enhanced Scheduler logic  coordinates multiple drones, ensuring a balanced workload
 
 ## Authors
 * Jordan Grewal
-* Ozan Kaya
 * Nolan Kisser
 * Celina Yang
 
@@ -24,6 +26,7 @@ This project simulates a swarm of autonomous drones designed to detect and extin
 ### Diagrams (`diagrams/`)
 * **`Iteration 1/`**: Contains diagrams for the first iteration of the project.
 * **`Iteration 2/`**: Contains diagrams for the second iteration of the project.
+* **`Iteration 2/`**: Contains diagrams for the third iteration of the project.
 
 ### Source Code (`src/`)
 * **`DroneSubsystem.java`**: The "Client" that simulates a physical drone using a lifecycle state machine. It retrieves events from the `Scheduler`, calculates flight/extinguish times, and reports completion.
