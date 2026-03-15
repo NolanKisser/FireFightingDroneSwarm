@@ -75,7 +75,7 @@ public class SystemIntegrationTest {
 
         Scheduler scheduler = new Scheduler(testZoneFilePath);
 
-        Thread fireIncidentThread = new Thread(new FireIncidentSubsystem(scheduler, testEventFilePath));
+        Thread fireIncidentThread = new Thread(new FireIncidentSubsystem(testEventFilePath));
         Thread droneThread = new Thread(new DroneSubsystem(scheduler, 1));
 
         fireIncidentThread.start();
@@ -101,7 +101,7 @@ public class SystemIntegrationTest {
 
         Scheduler scheduler = new Scheduler(testZoneFilePath);
 
-        Thread fireIncidentThread = new Thread(new FireIncidentSubsystem(scheduler, testEventFilePath));
+        Thread fireIncidentThread = new Thread(new FireIncidentSubsystem(testEventFilePath));
         Thread droneThread = new Thread(new DroneSubsystem(scheduler, 1));
 
         fireIncidentThread.start();
@@ -128,7 +128,7 @@ public class SystemIntegrationTest {
 
         Scheduler scheduler = new Scheduler(testZoneFilePath);
 
-        Thread fireIncidentThread = new Thread(new FireIncidentSubsystem(scheduler, testEventFilePath));
+        Thread fireIncidentThread = new Thread(new FireIncidentSubsystem(testEventFilePath));
         Thread drone1Thread = new Thread(new DroneSubsystem(scheduler, 1));
         Thread drone2Thread = new Thread(new DroneSubsystem(scheduler, 2));
 
@@ -157,7 +157,7 @@ public class SystemIntegrationTest {
         );
 
         Scheduler scheduler = new Scheduler(testZoneFilePath);
-        FireIncidentSubsystem fireSubsystem = new FireIncidentSubsystem(scheduler, testEventFilePath);
+        FireIncidentSubsystem fireSubsystem = new FireIncidentSubsystem(testEventFilePath);
 
         // Use reflection to load CSV without running full subsystem thread
         java.lang.reflect.Method loadCSV = FireIncidentSubsystem.class.getDeclaredMethod("loadCSV", String.class);
@@ -191,7 +191,7 @@ public class SystemIntegrationTest {
 
         Scheduler scheduler = new Scheduler(testZoneFilePath);
 
-        Thread fireIncidentThread = new Thread(new FireIncidentSubsystem(scheduler, testEventFilePath));
+        Thread fireIncidentThread = new Thread(new FireIncidentSubsystem(testEventFilePath));
         Thread droneThread = new Thread(new DroneSubsystem(scheduler, 1));
 
         fireIncidentThread.start();
@@ -216,7 +216,7 @@ public class SystemIntegrationTest {
 
         Scheduler scheduler = new Scheduler(testZoneFilePath);
 
-        Thread fireIncidentThread = new Thread(new FireIncidentSubsystem(scheduler, testEventFilePath));
+        Thread fireIncidentThread = new Thread(new FireIncidentSubsystem(testEventFilePath));
         Thread droneThread = new Thread(new DroneSubsystem(scheduler, 1));
 
         fireIncidentThread.start();
@@ -238,7 +238,7 @@ public class SystemIntegrationTest {
 
         Scheduler scheduler = new Scheduler(testZoneFilePath);
 
-        Thread fireIncidentThread = new Thread(new FireIncidentSubsystem(scheduler, testEventFilePath));
+        Thread fireIncidentThread = new Thread(new FireIncidentSubsystem(testEventFilePath));
         Thread droneThread = new Thread(new DroneSubsystem(scheduler, 1));
 
         fireIncidentThread.start();
@@ -266,7 +266,7 @@ public class SystemIntegrationTest {
 
         Scheduler scheduler = new Scheduler(testZoneFilePath);
 
-        Thread fireIncidentThread = new Thread(new FireIncidentSubsystem(scheduler, testEventFilePath));
+        Thread fireIncidentThread = new Thread(new FireIncidentSubsystem(testEventFilePath));
         Thread droneThread = new Thread(new DroneSubsystem(scheduler, 1));
 
         fireIncidentThread.start();
@@ -294,7 +294,7 @@ public class SystemIntegrationTest {
 
         Scheduler scheduler = new Scheduler(testZoneFilePath);
 
-        Thread fireIncidentThread = new Thread(new FireIncidentSubsystem(scheduler, testEventFilePath));
+        Thread fireIncidentThread = new Thread(new FireIncidentSubsystem(testEventFilePath));
         Thread drone1Thread = new Thread(new DroneSubsystem(scheduler, 1));
         Thread drone2Thread = new Thread(new DroneSubsystem(scheduler, 2));
         Thread drone3Thread = new Thread(new DroneSubsystem(scheduler, 3));

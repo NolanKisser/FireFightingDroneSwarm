@@ -62,14 +62,19 @@ public class DroneSubsystem implements Runnable {
 
     public static void main(String[] args) {
 
-        Scheduler scheduler = new Scheduler("zone_file.csv");
-        DroneSubsystem drone1 = new DroneSubsystem(scheduler, 1);
-        Thread droneThread1 = new Thread(drone1);
-        droneThread1.start();
+        int id = 1;
+        if (args.length > 0) {
+            try {
+                id = Integer.parseInt(args[0]);
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid Drone ID provided. Using default ID 1.");
+            }
+        }
 
-        // DroneSubsystem drone2 = new DroneSubsystem(2);
-        // Thread droneThread2 = new Thread(drone2);
-        // droneThread2.start();
+        Scheduler scheduler = new Scheduler("zone_file.csv");
+        DroneSubsystem drone = new DroneSubsystem(scheduler, id);
+        Thread droneThread = new Thread(drone);
+        droneThread.start();
     }
 
     private String sendAndReceive(String message) {
@@ -160,6 +165,33 @@ public class DroneSubsystem implements Runnable {
         double distance = distance(currentX, currentY, 0, 0);
         return distance / CRUISE_SPEED_UNLOADED;
 
+    }
+
+    /**
+     * Move drone step-by-step towards the target, visually updating 1 block (100 units) at a time
+     * @param targetX the x coordinate of the destination
+     * @param targetY the y coordinate of the destination
+     * @param speed the speed of the drone
+     */
+    private void moveToTargetStepByStep(double targetX, double targetY, double speed) throws InterruptedException {
+        double stepDistance = 100.0;
+        while (currentX != targetX || currentY != targetY) {
+            double diffX = targetX - currentX;
+            double diffY = targetY - currentY;
+            
+            // Move strictly block-by-block aligned to axis
+            if (Math.abs(diffX) > 0) {
+                double step = Math.min(stepDistance, Math.abs(diffX));
+                currentX += Math.signum(diffX) * step;
+                Thread.sleep((long) ((step / speed) * 10)); // Simulated time delay
+            } else if (Math.abs(diffY) > 0) {
+                double step = Math.min(stepDistance, Math.abs(diffY));
+                currentY += Math.signum(diffY) * step;
+                Thread.sleep((long) ((step / speed) * 10)); // Simulated time delay
+            }
+            
+            sendOnly("STATUS_UPDATE," + droneID + "," + state + "," + currentX + "," + currentY + "," + currentAgent);
+        }
     }
 
     /**
@@ -260,11 +292,10 @@ public class DroneSubsystem implements Runnable {
                 double travelTime = computeEnRoute(event);
                 System.out.printf("[Drone %d] En route to Zone %d. Expected travel time: %.1f seconds\n", droneID, event.getZoneID(), travelTime);
 
-                Thread.sleep((long) (travelTime * 10)); // Scaled for simulation speed
-                moveToZoneCenter(event);
+                Zone target = scheduler.getZones().get(event.getZoneID());
+                moveToTargetStepByStep(target.getCenterX(), target.getCenterY(), CRUISE_SPEED_LOADED);
 
-                // Push status update and notify arrival
-                sendOnly("STATUS_UPDATE," + droneID + "," + state + "," + currentX + "," + currentY + "," + currentAgent);
+                // Check arrival and update
                 sendOnly("DRONE_ARRIVE_TO_ZONE," + droneID + "," + event.getTime() + "," + event.getZoneID() + "," + event.getSeverity());
 //                         scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
 //                         scheduler.droneArrivedAtZone(droneID, event);
@@ -316,10 +347,8 @@ public class DroneSubsystem implements Runnable {
                 double returnTime = computeReturn(event);
                 System.out.printf("[Drone %d] Returning to base. Expected return time: %.1f seconds\n", droneID, returnTime);
 
-                Thread.sleep((long) (returnTime * 10)); // Scaled
-                moveToBase();
+                moveToTargetStepByStep(0, 0, CRUISE_SPEED_UNLOADED);
 //                         scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
-                sendOnly("STATUS_UPDATE," + droneID + "," + state + "," + currentX + "," + currentY + "," + currentAgent);
                 transitionTo(DroneState.REFILLING);
                 break;
 

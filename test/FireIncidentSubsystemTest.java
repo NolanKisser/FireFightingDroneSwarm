@@ -88,7 +88,7 @@ public class FireIncidentSubsystemTest {
     @DisplayName("Test FireIncidentSubsystem creation with valid parameters")
     public void testFireIncidentSubsystemCreation() throws IOException {
         createTestEventFile(testEventFilePath, "14:03:15,1,FIRE_DETECTED,Low");
-        assertDoesNotThrow(() -> new FireIncidentSubsystem(scheduler, testEventFilePath));
+        assertDoesNotThrow(() -> new FireIncidentSubsystem(testEventFilePath));
     }
 
     @Test
@@ -97,7 +97,7 @@ public class FireIncidentSubsystemTest {
     public void testReadSingleEvent() throws Exception {
         createTestEventFile(testEventFilePath, "14:03:15,1,FIRE_DETECTED,Low");
 
-        FireIncidentSubsystem fireSubsystem = new FireIncidentSubsystem(scheduler, testEventFilePath);
+        FireIncidentSubsystem fireSubsystem = new FireIncidentSubsystem(testEventFilePath);
         loadCSVOnly(fireSubsystem, testEventFilePath);
 
         // Now retrieve and verify the event
@@ -119,7 +119,7 @@ public class FireIncidentSubsystemTest {
                 "14:15:30,3,FIRE_DETECTED,High"
         );
 
-        FireIncidentSubsystem fireSubsystem = new FireIncidentSubsystem(scheduler, testEventFilePath);
+        FireIncidentSubsystem fireSubsystem = new FireIncidentSubsystem(testEventFilePath);
         loadCSVOnly(fireSubsystem, testEventFilePath);
 
         // Verify events are in correct order
@@ -151,7 +151,7 @@ public class FireIncidentSubsystemTest {
     public void testParseFireDetectedType() throws Exception {
         createTestEventFile(testEventFilePath, "14:03:15,1,FIRE_DETECTED,High");
 
-        FireIncidentSubsystem fireSubsystem = new FireIncidentSubsystem(scheduler, testEventFilePath);
+        FireIncidentSubsystem fireSubsystem = new FireIncidentSubsystem(testEventFilePath);
         loadCSVOnly(fireSubsystem, testEventFilePath);
 
         FireEvent event = scheduler.getNextFireEvent();
@@ -165,7 +165,7 @@ public class FireIncidentSubsystemTest {
     public void testParseDroneRequestType() throws Exception {
         createTestEventFile(testEventFilePath, "14:10:00,2,DRONE_REQUEST,Moderate");
 
-        FireIncidentSubsystem fireSubsystem = new FireIncidentSubsystem(scheduler, testEventFilePath);
+        FireIncidentSubsystem fireSubsystem = new FireIncidentSubsystem(testEventFilePath);
         loadCSVOnly(fireSubsystem, testEventFilePath);
 
         FireEvent event = scheduler.getNextFireEvent();
@@ -179,7 +179,7 @@ public class FireIncidentSubsystemTest {
     public void testParseLowSeverity() throws Exception {
         createTestEventFile(testEventFilePath, "14:03:15,1,FIRE_DETECTED,Low");
 
-        FireIncidentSubsystem fireSubsystem = new FireIncidentSubsystem(scheduler, testEventFilePath);
+        FireIncidentSubsystem fireSubsystem = new FireIncidentSubsystem(testEventFilePath);
         loadCSVOnly(fireSubsystem, testEventFilePath);
 
         FireEvent event = scheduler.getNextFireEvent();
@@ -193,7 +193,7 @@ public class FireIncidentSubsystemTest {
     public void testParseModerateSeverity() throws Exception {
         createTestEventFile(testEventFilePath, "14:10:00,2,DRONE_REQUEST,Moderate");
 
-        FireIncidentSubsystem fireSubsystem = new FireIncidentSubsystem(scheduler, testEventFilePath);
+        FireIncidentSubsystem fireSubsystem = new FireIncidentSubsystem(testEventFilePath);
         loadCSVOnly(fireSubsystem, testEventFilePath);
 
         FireEvent event = scheduler.getNextFireEvent();
@@ -207,7 +207,7 @@ public class FireIncidentSubsystemTest {
     public void testParseHighSeverity() throws Exception {
         createTestEventFile(testEventFilePath, "14:15:30,3,FIRE_DETECTED,High");
 
-        FireIncidentSubsystem fireSubsystem = new FireIncidentSubsystem(scheduler, testEventFilePath);
+        FireIncidentSubsystem fireSubsystem = new FireIncidentSubsystem(testEventFilePath);
         loadCSVOnly(fireSubsystem, testEventFilePath);
 
         FireEvent event = scheduler.getNextFireEvent();
@@ -221,7 +221,7 @@ public class FireIncidentSubsystemTest {
     public void testHandleWhitespace() throws Exception {
         createTestEventFile(testEventFilePath, "14:03:15 , 1 , FIRE_DETECTED , Low");
 
-        FireIncidentSubsystem fireSubsystem = new FireIncidentSubsystem(scheduler, testEventFilePath);
+        FireIncidentSubsystem fireSubsystem = new FireIncidentSubsystem(testEventFilePath);
         loadCSVOnly(fireSubsystem, testEventFilePath);
 
         FireEvent event = scheduler.getNextFireEvent();
@@ -238,7 +238,7 @@ public class FireIncidentSubsystemTest {
 
         // This test runs the complete system to verify everything works together
         Thread droneThread = new Thread(new DroneSubsystem(scheduler, 1));
-        Thread fireThread = new Thread(new FireIncidentSubsystem(scheduler, testEventFilePath));
+        Thread fireThread = new Thread(new FireIncidentSubsystem(testEventFilePath));
 
         fireThread.start();
         droneThread.start();
@@ -257,7 +257,7 @@ public class FireIncidentSubsystemTest {
     public void testEmptyCSVFile() throws IOException, InterruptedException {
         createTestEventFile(testEventFilePath); // Empty file
 
-        Thread fireThread = new Thread(new FireIncidentSubsystem(scheduler, testEventFilePath));
+        Thread fireThread = new Thread(new FireIncidentSubsystem(testEventFilePath));
         fireThread.start();
 
         Thread.sleep(100);
@@ -279,7 +279,7 @@ public class FireIncidentSubsystemTest {
                 "14:15:30,3,FIRE_DETECTED,High"
         );
 
-        FireIncidentSubsystem fireSubsystem = new FireIncidentSubsystem(scheduler, testEventFilePath);
+        FireIncidentSubsystem fireSubsystem = new FireIncidentSubsystem(testEventFilePath);
         loadCSVOnly(fireSubsystem, testEventFilePath);
 
         FireEvent event1 = scheduler.getNextFireEvent();

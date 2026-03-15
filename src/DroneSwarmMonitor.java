@@ -14,8 +14,9 @@ public class DroneSwarmMonitor extends JFrame {
     private SimpleDateFormat timeFormat;
     private ZoneMap mapPanel;
     private JPanel mapContainer;
-    private JLabel droneStateLabel;
     private JLabel activeFiresLabel;
+    private JTable droneStatusTable;
+    private javax.swing.table.DefaultTableModel droneTableModel;
 
     public DroneSwarmMonitor() {
         super("SYSC 3303A: Firefighting Drone Swarm Monitor");
@@ -28,15 +29,35 @@ public class DroneSwarmMonitor extends JFrame {
         this.setSize(1200, 720);
         this.setLayout(new BorderLayout(5, 5));
 
-        //Load CSV button
+        // Top Panel for active fires and Drone Table
+        JPanel topPanel = new JPanel(new BorderLayout());
+        
         JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        droneStateLabel = new JLabel("Drone State: IDLE");
         activeFiresLabel = new JLabel("Active Fires: 0");
         controlPanel.add(Box.createHorizontalStrut(20));
-        controlPanel.add(droneStateLabel);
-        controlPanel.add(Box.createHorizontalStrut(20));
         controlPanel.add(activeFiresLabel);
-        this.add(controlPanel, BorderLayout.NORTH);
+        
+        JButton launchButton = new JButton("Launch Simulation");
+        launchButton.addActionListener(e -> {
+            Thread fireincidentsubsystem = new Thread(new FireIncidentSubsystem("event_file.csv"));
+            fireincidentsubsystem.start();
+            launchButton.setEnabled(false);
+        });
+        controlPanel.add(Box.createHorizontalStrut(20));
+        controlPanel.add(launchButton);
+
+        topPanel.add(controlPanel, BorderLayout.NORTH);
+
+        // Drone Status Table
+        String[] columns = {"Drone ID", "State", "Zone", "Severity", "Agent %"};
+        droneTableModel = new javax.swing.table.DefaultTableModel(columns, 0);
+        droneStatusTable = new JTable(droneTableModel);
+        JScrollPane tableScrollPane = new JScrollPane(droneStatusTable);
+        tableScrollPane.setPreferredSize(new Dimension(this.getWidth(), 100));
+        tableScrollPane.setBorder(BorderFactory.createTitledBorder("Drone Status"));
+        topPanel.add(tableScrollPane, BorderLayout.CENTER);
+        
+        this.add(topPanel, BorderLayout.NORTH);
 
         //Zone Map
         mapContainer = new JPanel(new BorderLayout());
@@ -74,11 +95,33 @@ public class DroneSwarmMonitor extends JFrame {
     }
 
     /**
-     * Updates the current drone state in the GUI.
+     * Updates the current drone state in the GUI and on the map.
+     * @param droneID the ID of the drone
      * @param state the new drone state
+     * @param zone "N/A" or zone number
+     * @param severity "N/A" or severity
+     * @param agentRemaining agent remaining percentage
+     * @param x drone x position
+     * @param y drone y position
      */
-    public void setDroneState(String state) {
-        SwingUtilities.invokeLater(() -> droneStateLabel.setText("Drone State: " + state));
+    public void updateDroneStatus(int droneID, String state, String zone, String severity, double agentRemaining, double x, double y) {
+        SwingUtilities.invokeLater(() -> {
+            boolean found = false;
+            for (int i = 0; i < droneTableModel.getRowCount(); i++) {
+                if ((int) droneTableModel.getValueAt(i, 0) == droneID) {
+                    droneTableModel.setValueAt(state, i, 1);
+                    droneTableModel.setValueAt(zone, i, 2);
+                    droneTableModel.setValueAt(severity, i, 3);
+                    droneTableModel.setValueAt(String.format("%.1f", agentRemaining), i, 4);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                droneTableModel.addRow(new Object[]{droneID, state, zone, severity, String.format("%.1f", agentRemaining)});
+            }
+            mapPanel.updateDrone(droneID, x, y, state);
+        });
     }
 
     /**
@@ -87,5 +130,17 @@ public class DroneSwarmMonitor extends JFrame {
      */
     public void setActiveFires(int count) {
         SwingUtilities.invokeLater(() -> activeFiresLabel.setText("Active Fires: " + count));
+    }
+
+    public void addActiveFire(int zoneID) {
+        mapPanel.addActiveFire(zoneID);
+    }
+    
+    public void removeActiveFire(int zoneID) {
+        mapPanel.removeActiveFire(zoneID);
+    }
+
+    public void addExtinguishedFire(int zoneID) {
+        mapPanel.addExtinguishedFire(zoneID);
     }
 }

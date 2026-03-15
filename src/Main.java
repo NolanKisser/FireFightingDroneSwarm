@@ -18,9 +18,7 @@ public class Main {
         Thread schedulerThread = new Thread(scheduler, "Scheduler-Thread");
         schedulerThread.start();
 
-        Thread fireincidentsubsystem = new Thread(new FireIncidentSubsystem(csvFilePath));
         Thread dronesubsystem = new Thread(new DroneSubsystem(scheduler, 1));
-        fireincidentsubsystem.start();
         dronesubsystem.start();
         monitor.addLog("SYSTEM", "Started");
 
