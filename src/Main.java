@@ -15,7 +15,10 @@ public class Main {
         Scheduler scheduler = new Scheduler(zonesFilePath, monitor);
 
         // create subsystem threads for fire incident and drone
-        Thread fireincidentsubsystem = new Thread(new FireIncidentSubsystem(csvFilePath));
+        Thread schedulerThread = new Thread(scheduler, "Scheduler-Thread");
+        schedulerThread.start();
+
+        Thread fireincidentsubsystem = new Thread(new FireIncidentSubsystem(scheduler, csvFilePath));
         Thread dronesubsystem = new Thread(new DroneSubsystem(scheduler, 1));
         fireincidentsubsystem.start();
         dronesubsystem.start();
