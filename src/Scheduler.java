@@ -95,72 +95,6 @@ public class Scheduler implements Runnable {
         System.out.println("[Scheduler] Transitioned to state: " + newState);
     }
 
-    /**
-     * Active state machine loop managing the Scheduler's states.
-     */
-    @Override
-    public void run() {
-        boolean running = true;
-
-        // Start UDP server in separate thread
-        new Thread(this::startUDPServer).start();
-
-        while (running) {
-            synchronized (this) {
-                try {
-                    switch (currentState) {
-                        case WAITING:
-                            // System.out.println("[Scheduler] WAITING STATE");
-                            while (incompleteEvents.isEmpty() && !allEventsDone) {
-                                wait();
-                            }
-
-                            if (allEventsDone && incompleteEvents.isEmpty() && activeDroneCount == 0) {
-                                running = false;
-                                udpRunning = false;
-                                if (socket != null && !socket.isClosed()) {
-                                    socket.close();
-                                }
-                            } else if (!incompleteEvents.isEmpty()) {
-                                transitionTo(State.EVENT_QUEUED);
-                            }
-                            break;
-
-                        case EVENT_QUEUED:
-                            // System.out.println("[Scheduler] EVENT QUEUED STATE");
-
-                            notifyAll();
-
-                            while (!incompleteEvents.isEmpty() && activeDroneCount == 0 && !allEventsDone) {
-                                wait();
-                            }
-
-                            if (activeDroneCount > 0) {
-                                transitionTo(State.DRONE_ACTIVE);
-                            } else if (incompleteEvents.isEmpty()) {
-                                transitionTo(State.WAITING);
-                            }
-                            break;
-
-                        case DRONE_ACTIVE:
-                            while (activeDroneCount > 0) {
-                                wait();
-                            }
-
-                            if (!incompleteEvents.isEmpty()) {
-                                transitionTo(State.EVENT_QUEUED);
-                            } else {
-                                transitionTo(State.WAITING);
-                            }
-                            break;
-                    }
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                    running = false;
-                }
-            }
-        }
-    }
 
     public static void main(String[] args) {
         String zonesFilePath = "zone_file.csv";
@@ -346,6 +280,10 @@ public class Scheduler implements Runnable {
     @Override
     public void run() {
         boolean running = true;
+
+        // Start UDP server in separate thread
+        new Thread(this::startUDPServer).start();
+
         while (running) {
             synchronized (this) {
                 try {
@@ -358,6 +296,10 @@ public class Scheduler implements Runnable {
 
                             if (allEventsDone && incompleteEvents.isEmpty() && activeDroneCount == 0) {
                                 running = false; // Simulation is finished
+                                udpRunning = false;
+                                if (socket != null && !socket.isClosed()) {
+                                    socket.close();
+                                }
                             } else if (!incompleteEvents.isEmpty()) {
                                 transitionTo(State.EVENT_QUEUED);
                             }
@@ -401,7 +343,7 @@ public class Scheduler implements Runnable {
         }
     }
 
-    public synchronized void registerDrone(int droneID) {
+    public synchronized void registerDrone(int droneID, InetAddress address, int port) {
         droneStatuses.putIfAbsent(droneID, new DroneStatus(droneID));
 
         DroneStatus status = droneStatuses.get(droneID);
@@ -525,8 +467,8 @@ public class Scheduler implements Runnable {
         notifyAll();
 
         return allEventsDone && incompleteEvents.isEmpty() && activeDroneCount == 0;
-        activeDroneCount--; // Drone is no longer actively working on a mission
-        notifyAll(); // Wake up the scheduler state machine to evaluate transitions
+        // activeDroneCount--; // Drone is no longer actively working on a mission
+        // notifyAll(); // Wake up the scheduler state machine to evaluate transitions
     }
 
     /**
