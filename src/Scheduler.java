@@ -203,30 +203,38 @@ public class Scheduler implements Runnable {
                     System.out.println("DRONE READY ---------> " + allEventsDone );
 
                     DroneStatus readyStatus = droneStatuses.get(droneID);
-                    if(!allEventsDone) {
+                    if (readyStatus != null) {
+                        readyStatus.address = address;
+                        readyStatus.port = port;
+                    }
+
+                    // FIX: Check if there are events in the queue FIRST
+                    if (!incompleteEvents.isEmpty()) {
+                        FireEvent event = incompleteEvents.poll();
                         if (readyStatus != null) {
-                            readyStatus.address = address;
-                            readyStatus.port = port;
-
-                            if (!incompleteEvents.isEmpty()) {
-                                FireEvent event = incompleteEvents.poll();
-                                readyStatus.currentMission = event;
-                                readyStatus.waitingForEvent = false;
-                                activeDroneCount++;
-
-                                String newMessage = "ASSIGN_EVENT," +
-                                        event.getTime() + "," +
-                                        event.getZoneID() + "," +
-                                        event.getSeverity();
-
-                                sendUDPMessage(newMessage, address, port);
-                                System.out.println("[Scheduler] Assigned event to drone " + droneID);
-                            } else {
-                                readyStatus.waitingForEvent = true;
-                                System.out.println("[Scheduler] Drone " + droneID + " is waiting for an event.");
-                            }
+                            readyStatus.currentMission = event;
+                            readyStatus.waitingForEvent = false;
                         }
+                        activeDroneCount++;
+
+                        String newMessage = "ASSIGN_EVENT," +
+                                event.getTime() + "," +
+                                event.getZoneID() + "," +
+                                event.getSeverity();
+
+                        sendUDPMessage(newMessage, address, port);
+                        System.out.println("[Scheduler] Assigned event to drone " + droneID);
+                        notifyAll(); // Wake up the scheduler state machine thread
+
+                    } else if (!allEventsDone) {
+                        // Queue is empty, but producer is still working
+                        if (readyStatus != null) {
+                            readyStatus.waitingForEvent = true;
+                        }
+                        System.out.println("[Scheduler] Drone " + droneID + " is waiting for an event.");
+
                     } else {
+                        // Queue is empty AND producer is done
                         sendUDPMessage("ALL_EVENTS_COMPLETE,", address, port);
                     }
                     break;

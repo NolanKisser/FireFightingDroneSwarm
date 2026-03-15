@@ -67,9 +67,9 @@ public class DroneSubsystem implements Runnable {
         Thread droneThread1 = new Thread(drone1);
         droneThread1.start();
 
-        // DroneSubsystem drone2 = new DroneSubsystem(2);
-        // Thread droneThread2 = new Thread(drone2);
-        // droneThread2.start();
+        DroneSubsystem drone2 = new DroneSubsystem(scheduler,2);
+        Thread droneThread2 = new Thread(drone2);
+        droneThread2.start();
     }
 
     private String sendAndReceive(String message) {
