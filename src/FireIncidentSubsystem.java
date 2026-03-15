@@ -21,6 +21,7 @@ public class FireIncidentSubsystem implements Runnable {
     int SCHEDULER_PORT = 6000;
     String SCHEDULER_HOST = "localhost";
 
+
     /**
      * Constructor for FireIncidentSubsystem
      * @param filePath the path to the CSV event file
@@ -60,6 +61,7 @@ public class FireIncidentSubsystem implements Runnable {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        sendOnly();
     }
 
     private void sendFireEvent(FireEvent event) {
@@ -75,6 +77,19 @@ public class FireIncidentSubsystem implements Runnable {
 
         System.out.println("[New Fire Incident]: sent message to scheduler");
         System.out.println("[New Fire Incident] message sent: " + message);
+    }
+
+    private void sendOnly() {
+        byte[] bytes = "ALL_EVENTS_DONE".getBytes();
+
+        try {
+            System.out.println("SENDING");
+            sendPacket = new DatagramPacket(bytes, bytes.length, InetAddress.getByName(SCHEDULER_HOST), SCHEDULER_PORT);
+            sendReceiveSocket.send(sendPacket);
+            System.out.println("SENT");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /**

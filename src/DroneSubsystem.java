@@ -45,7 +45,7 @@ public class DroneSubsystem implements Runnable {
     int SCHEDULER_PORT = 6000;
     String SCHEDULER_HOST = "localhost";
 
-
+    private boolean running = true;
 
     public DroneSubsystem(Scheduler scheduler, int droneID) {
         this.scheduler = scheduler;
@@ -238,7 +238,6 @@ public class DroneSubsystem implements Runnable {
                     FireEvent.Severity severity = FireEvent.Severity.valueOf(parts[3]);
 
                     event = new FireEvent(time, zoneID, FireEvent.Type.FIRE_DETECTED, severity);
-                    state = DroneState.EN_ROUTE;
 
                     // Check if drone has enough agent to take on a mission
                     if (currentAgent < LOW_VOLUME) {
@@ -250,6 +249,9 @@ public class DroneSubsystem implements Runnable {
                     } else {
                         transitionTo(DroneState.EN_ROUTE);
                     }
+                } else if(parts[0].equals("ALL_EVENTS_COMPLETE")) {
+                    System.out.println("ALL EVENTS COMPLETE");
+                    running = false;
                 }
 
                 break;
@@ -329,9 +331,16 @@ public class DroneSubsystem implements Runnable {
 //                         scheduler.droneReturnToBase(droneID); // Notify scheduler we are ready
 //                         scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
 
-                sendOnly("DRONE_RETURN_TO_BASE," + droneID);
                 sendOnly("STATUS_UPDATE," + droneID + "," + state + "," + currentX + "," + currentY + "," + currentAgent);
-                transitionTo(DroneState.IDLE);
+
+                String reply = sendAndReceive("DRONE_RETURN_TO_BASE," + droneID);
+
+                if (reply.startsWith("ALL_EVENTS_COMPLETE")) {
+                    System.out.println("[Drone " + droneID + "] All events complete. Shutting down.");
+                    running = false;
+                } else {
+                    transitionTo(DroneState.IDLE);
+                }
                 break;
 
             case FAULTED:
@@ -349,7 +358,6 @@ public class DroneSubsystem implements Runnable {
      */
     @Override
     public void run() {
-        boolean running = true;
 
         sendAndReceive("REGISTER_DRONE," + droneID);
 

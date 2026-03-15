@@ -110,6 +110,7 @@ public class Scheduler implements Runnable {
                 try {
                     switch (currentState) {
                         case WAITING:
+                            // System.out.println("[Scheduler] WAITING STATE");
                             while (incompleteEvents.isEmpty() && !allEventsDone) {
                                 wait();
                             }
@@ -126,6 +127,8 @@ public class Scheduler implements Runnable {
                             break;
 
                         case EVENT_QUEUED:
+                            // System.out.println("[Scheduler] EVENT QUEUED STATE");
+
                             notifyAll();
 
                             while (!incompleteEvents.isEmpty() && activeDroneCount == 0 && !allEventsDone) {
@@ -172,7 +175,7 @@ public class Scheduler implements Runnable {
             socket = new DatagramSocket(schedulerPort);
             monitor.addLog("Scheduler", "UDP Server listening on port " + schedulerPort);
             System.out.println("UDP Server listening on port " +  schedulerPort);
-            while(true) {
+            while(udpRunning) {
                 byte[] buffer = new byte[1024];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
@@ -186,7 +189,11 @@ public class Scheduler implements Runnable {
             }
 
         } catch (SocketException e) {
-            e.printStackTrace();
+            if(udpRunning) {
+                e.printStackTrace();
+            } else {
+                System.out.println("[Scheduler] UDP Server stopped");
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -213,8 +220,9 @@ public class Scheduler implements Runnable {
                     break;
                 case "ALL_EVENTS_DONE":
                     // ALL_EVENTS_DONE
+                    System.out.println("[Scheduler] All events done");
                     updateAllEventsDone();
-                    sendUDPMessage("ALL_EVENTS_ACK,", address, port);
+                    System.out.println("[Scheduler] FireIncidentSubsystem reported all events done");
                     break;
                 case "STATUS_UPDATE":
                     // STATUS_UPDATE,droneId,state,x,y,agent
@@ -230,63 +238,73 @@ public class Scheduler implements Runnable {
                     // DRONE_ARRIVED,droneID,time,zoneID,severity
                     droneID = Integer.parseInt(messageParts[1]);
 
-                    String completeTime = messageParts[2];
-                    int completeZoneID = Integer.parseInt(messageParts[3]);
-                    FireEvent.Severity completeSeverity = FireEvent.Severity.valueOf(messageParts[4]);
+                    String arriveTime = messageParts[2];
+                    int arriveZoneID = Integer.parseInt(messageParts[3]);
+                    FireEvent.Severity arriveSeverity = FireEvent.Severity.valueOf(messageParts[4]);
 
-                    FireEvent completedEvent = new FireEvent(
-                            completeTime,
-                            completeZoneID,
+                    FireEvent arrivedEvent = new FireEvent(
+                            arriveTime,
+                            arriveZoneID,
                             FireEvent.Type.FIRE_DETECTED,
-                            completeSeverity
+                            arriveSeverity
                     );
 
-                    completeFireEvent(completedEvent);
-
+                    droneArrivedAtZone(droneID, arrivedEvent);
                     break;
                 case "DRONE_RETURN_TO_BASE":
                     // DRONE_RETURN_TO_BASE,droneID
                     droneID = Integer.parseInt(messageParts[1]);
-                    droneReturnToBase(droneID);
+                    boolean finished = droneReturnToBase(droneID);
 
+                    if (finished) {
+                        sendUDPMessage("ALL_EVENTS_COMPLETE,", address, port);
+                    } else {
+                        sendUDPMessage("RETURN_CONFIRMED,", address, port);
+                    }
                     break;
                 case "DRONE_READY":
                     // DRONE_READY,droneID
                     droneID = Integer.parseInt(messageParts[1]);
 
+                    System.out.println("DRONE READY ---------> " + allEventsDone );
+
                     DroneStatus readyStatus = droneStatuses.get(droneID);
+                    if(!allEventsDone) {
+                        if (readyStatus != null) {
+                            readyStatus.address = address;
+                            readyStatus.port = port;
 
-                    if (readyStatus != null) {
-                        readyStatus.address = address;
-                        readyStatus.port = port;
+                            if (!incompleteEvents.isEmpty()) {
+                                FireEvent event = incompleteEvents.poll();
+                                readyStatus.currentMission = event;
+                                readyStatus.waitingForEvent = false;
+                                activeDroneCount++;
 
-                        if (!incompleteEvents.isEmpty()) {
-                            FireEvent event = incompleteEvents.poll();
-                            readyStatus.currentMission = event;
-                            readyStatus.waitingForEvent = false;
+                                String newMessage = "ASSIGN_EVENT," +
+                                        event.getTime() + "," +
+                                        event.getZoneID() + "," +
+                                        event.getSeverity();
 
-                            String newMessage = "ASSIGN_EVENT," +
-                                    event.getTime() + "," +
-                                    event.getZoneID() + "," +
-                                    event.getSeverity();
-
-                            sendUDPMessage(newMessage, address, port);
-                            System.out.println("[Scheduler] Assigned event to drone " + droneID);
-                        } else {
-                            readyStatus.waitingForEvent = true;
-                            System.out.println("[Scheduler] Drone " + droneID + " is waiting for an event.");
+                                sendUDPMessage(newMessage, address, port);
+                                System.out.println("[Scheduler] Assigned event to drone " + droneID);
+                            } else {
+                                readyStatus.waitingForEvent = true;
+                                System.out.println("[Scheduler] Drone " + droneID + " is waiting for an event.");
+                            }
                         }
+                    } else {
+                        sendUDPMessage("ALL_EVENTS_COMPLETE,", address, port);
                     }
                     break;
                 case "DRONE_COMPLETE_EVENT":
                     // DRONE_COMPLETE_EVENT,droneID,time,zoneID,severity
                     droneID = Integer.parseInt(messageParts[1]);
 
-                    completeTime = messageParts[2];
-                    completeZoneID = Integer.parseInt(messageParts[3]);
-                    completeSeverity = FireEvent.Severity.valueOf(messageParts[4]);
+                    String completeTime = messageParts[2];
+                    int completeZoneID = Integer.parseInt(messageParts[3]);
+                    FireEvent.Severity completeSeverity = FireEvent.Severity.valueOf(messageParts[4]);
 
-                    completedEvent = new FireEvent(
+                    FireEvent completedEvent = new FireEvent(
                             completeTime,
                             completeZoneID,
                             FireEvent.Type.FIRE_DETECTED,
@@ -354,6 +372,7 @@ public class Scheduler implements Runnable {
 
                 status.currentMission = event;
                 status.waitingForEvent = false;
+                activeDroneCount++;
 
                 String message = "ASSIGN_EVENT," +
                         event.getTime() + "," +
@@ -382,7 +401,7 @@ public class Scheduler implements Runnable {
             }
         }
 
-        if(incompleteEvents.isEmpty() && allEventsDone) {
+        if(incompleteEvents.isEmpty()) {
             return null;
         }
 
@@ -441,19 +460,24 @@ public class Scheduler implements Runnable {
         System.out.println("[Scheduler] Notification: Drone " + droneID + " arrived at Zone " + fireEvent.getZoneID());
     }
 
-    public synchronized void droneReturnToBase(int droneID){
+    public synchronized boolean droneReturnToBase(int droneID){
         System.out.println("[Scheduler] Notification: Drone " + droneID + " returned to base.");
         DroneStatus status = droneStatuses.get(droneID);
-        if(status != null) {
+        if (status != null) {
             status.currentMission = null;
             status.agentRemaining = 100.0;
+            status.waitingForEvent = false;
         }
 
         if (activeDroneCount > 0) {
             activeDroneCount--;
         }
+
         notifyAll();
+
+        return allEventsDone && incompleteEvents.isEmpty() && activeDroneCount == 0;
     }
+
     /**
      * Update boolean when all events are complete
      */
