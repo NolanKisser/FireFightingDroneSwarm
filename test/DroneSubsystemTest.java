@@ -293,11 +293,11 @@ public class DroneSubsystemTest {
         Thread t = new Thread(drone);
         t.start();
 
-        waitUntil(() -> drone.getDroneState() == DroneSubsystem.DroneState.EN_ROUTE, 2000);
-        waitUntil(() -> drone.getDroneState() == DroneSubsystem.DroneState.EXTINGUISHING, 3000);
-        waitUntil(() -> drone.getDroneState() == DroneSubsystem.DroneState.RETURNING, 4000);
-        waitUntil(() -> drone.getDroneState() == DroneSubsystem.DroneState.REFILLING, 5000);
-        waitUntil(() -> drone.getDroneState() == DroneSubsystem.DroneState.IDLE, 8000);
+        waitUntil(() -> "EN_ROUTE".equals(drone.getDroneState().getState()), 2000);
+        waitUntil(() -> "EXTINGUISHING".equals(drone.getDroneState().getState()), 3000);
+        waitUntil(() -> "RETURNING".equals(drone.getDroneState().getState()), 4000);
+        waitUntil(() -> "REFILLING".equals(drone.getDroneState().getState()), 5000);
+        waitUntil(() -> "IDLE".equals(drone.getDroneState().getState()), 8000);
 
         t.join(8000);
         assertFalse(t.isAlive());
@@ -319,7 +319,7 @@ public class DroneSubsystemTest {
         Thread t = new Thread(drone);
         t.start();
 
-        waitUntil(() -> drone.getDroneState() == DroneSubsystem.DroneState.EN_ROUTE || drone.getDroneState() == DroneSubsystem.DroneState.RETURNING, 2000);
+        waitUntil(() -> "EN_ROUTE".equals(drone.getDroneState().getState()) || "RETURNING".equals(drone.getDroneState().getState()), 2000);
 
         t.join(6000);
     }
@@ -339,7 +339,7 @@ public class DroneSubsystemTest {
         Thread t = new Thread(drone);
         t.start();
 
-        waitUntil(() -> drone.getDroneState() == DroneSubsystem.DroneState.RETURNING, 5000);
+        waitUntil(() -> "RETURNING".equals(drone.getDroneState().getState()), 5000);
 
         assertTrue(scheduler.getActiveFireCount() >= 0);
         t.join(6000);

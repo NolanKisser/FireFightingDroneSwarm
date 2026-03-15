@@ -64,4 +64,7 @@ public class FireIncidentSubsystem implements Runnable {
         }
 
     }
+    public static void main(String[] args) {
+
+    }
 }

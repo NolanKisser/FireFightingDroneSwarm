@@ -1,3 +1,5 @@
+import java.util.HashMap;
+
 /**
  * DroneSubsystem class represents a single firefighter drone.
  * The firefighter drone repeats the next incomplete FireEvent from the Scheduler and simulates
@@ -8,17 +10,10 @@
 public class DroneSubsystem implements Runnable {
 
 
-    public enum DroneState {
-        IDLE,
-        EN_ROUTE,
-        EXTINGUISHING,
-        RETURNING,
-        REFILLING,
-        FAULTED
-    }
     private final Scheduler scheduler;
     private final int droneID;
-    private DroneState state;
+    private DroneStates state;
+    private HashMap<String, DroneStates> states;
     private FireEvent event;
 
     // current drone location
@@ -44,7 +39,16 @@ public class DroneSubsystem implements Runnable {
     public DroneSubsystem(Scheduler scheduler, int droneID) {
         this.scheduler = scheduler;
         this.droneID = droneID;
-        transitionTo(DroneState.IDLE);
+        
+        states = new HashMap<>();
+        states.put("IDLE", new idelState());
+        states.put("EN_ROUTE", new enRouteState());
+        states.put("EXTINGUISHING", new extinguishingState());
+        states.put("RETURNING", new returningState());
+        states.put("REFILLING", new refillingState());
+        states.put("FAULTED", new faultedState());
+
+        transitionTo(states.get("IDLE"));
         // Register this drone with the scheduler's tracking system
         this.scheduler.registerDrone(droneID);
     }
@@ -87,7 +91,7 @@ public class DroneSubsystem implements Runnable {
         };
     }
 
-    private void transitionTo(DroneState newState) {
+    private void transitionTo(DroneStates newState) {
         this.state = newState;
         scheduler.notifyDroneTransition(newState);
     }
@@ -153,7 +157,7 @@ public class DroneSubsystem implements Runnable {
         return computeReturn(event);
     }
 
-    public DroneState getDroneState() {
+    public DroneStates getDroneState() {
         return state;
     }
 
@@ -178,8 +182,8 @@ public class DroneSubsystem implements Runnable {
         while(running) {
             // simulating travel, extinguish, and return time
             try {
-                switch (state) {
-                    case IDLE:
+                switch (state.getState()) {
+                    case "IDLE":
                         event = scheduler.getNextFireEvent();
                         if (event == null) {
                             running = false; // Simulation complete
@@ -190,14 +194,14 @@ public class DroneSubsystem implements Runnable {
                                 // Requeue the event since we can't handle it
                                 scheduler.newFireEvent(event);
                                 event = null;
-                                transitionTo(DroneState.RETURNING);
+                                transitionTo(states.get("RETURNING"));
                             } else {
-                                transitionTo(DroneState.EN_ROUTE);
+                                transitionTo(states.get("EN_ROUTE"));
                             }
                         }
                         break;
 
-                    case EN_ROUTE:
+                    case "EN_ROUTE":
                         double travelTime = computeEnRoute(event);
                         System.out.printf("[Drone %d] En route to Zone %d. Expected travel time: %.1f seconds\n", droneID, event.getZoneID(), travelTime);
 
@@ -207,10 +211,10 @@ public class DroneSubsystem implements Runnable {
                         // Push status update and notify arrival
                         scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
                         scheduler.droneArrivedAtZone(droneID, event);
-                        transitionTo(DroneState.EXTINGUISHING);
+                        transitionTo(states.get("EXTINGUISHING"));
                         break;
 
-                    case EXTINGUISHING:
+                    case "EXTINGUISHING":
                         // Determine how much agent is required based on severity
                         double requiredVolume = getRequiredVolume(event);
 
@@ -244,11 +248,11 @@ public class DroneSubsystem implements Runnable {
                         }
 
                         // Always return to base after a drop (can be optimized in future iterations to chain nearby fires)
-                        transitionTo(DroneState.RETURNING);
+                        transitionTo(states.get("RETURNING"));
                         event = null;
                         break;
 
-                    case RETURNING:
+                    case "RETURNING":
                         double returnTime = computeReturn(event);
                         System.out.printf("[Drone %d] Returning to base. Expected return time: %.1f seconds\n", droneID, returnTime);
 
@@ -256,10 +260,10 @@ public class DroneSubsystem implements Runnable {
                         moveToBase();
                         scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
 
-                        transitionTo(DroneState.REFILLING);
+                        transitionTo(states.get("REFILLING"));
                         break;
 
-                    case REFILLING:
+                    case "REFILLING":
                         System.out.printf("[Drone %d] Refilling agent at base...\n", droneID);
                         Thread.sleep(1500); // Simulate refill time
 
@@ -267,10 +271,10 @@ public class DroneSubsystem implements Runnable {
                         scheduler.droneReturnToBase(droneID); // Notify scheduler we are ready
                         scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
 
-                        transitionTo(DroneState.IDLE);
+                        transitionTo(states.get("IDLE"));
                         break;
 
-                    case FAULTED:
+                    case "FAULTED":
                         // The drone sits inactive. The scheduler will have re-queued its mission.
                         Thread.sleep(5000);
                         // In a real application, you might transition to an attempt to recover or restart
@@ -282,5 +286,8 @@ public class DroneSubsystem implements Runnable {
                 running = false;
             }
         }
+    }
+    public static void main(String[] args) {
+        
     }
 }

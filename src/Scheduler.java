@@ -303,9 +303,9 @@ public class Scheduler implements Runnable {
         return incompleteEvents.size();
     }
 
-    public void notifyDroneTransition(DroneSubsystem.DroneState state) {
+    public void notifyDroneTransition(DroneStates state) {
         if (monitor != null) {
-            monitor.setDroneState(state.name());
+            monitor.setDroneState(state.getState());
             monitor.setActiveFires(getActiveFireCount());
         }
     }
@@ -318,5 +318,9 @@ public class Scheduler implements Runnable {
 
     public State getCurrentState() {
         return currentState;
+    }
+
+    public static void main(String[] args) {
+
     }
 }
