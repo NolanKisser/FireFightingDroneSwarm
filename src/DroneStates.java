@@ -1,4 +1,4 @@
-interface DroneStates {
+interface DroneStates{
     void handleEvent(DroneSubsystem context);
     void displayState();
     String getState();

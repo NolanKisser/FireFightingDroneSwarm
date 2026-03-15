@@ -1,3 +1,4 @@
+import java.net.InetAddress;
 import java.util.HashMap;
 
 /**
@@ -10,11 +11,11 @@ import java.util.HashMap;
 public class DroneSubsystem implements Runnable {
 
 
-    private final Scheduler scheduler;
     private final int droneID;
     private DroneStates state;
     private HashMap<String, DroneStates> states;
     private FireEvent event;
+    private java.util.Map<Integer, Zone> zonesCache;
 
     // current drone location
     private double currentX = 0.0;
@@ -31,14 +32,23 @@ public class DroneSubsystem implements Runnable {
     private static final double MODERATE_VOLUME = 20.0;
     private static final double HIGH_VOLUME = 30.0;
 
+    //UDP
+    private final EventSocket eventSocket;
+    private final InetAddress schedulerAddress;
+    private final int schedulerPort;
+    
+
     /**
      * Constructor for DroneSubsystem
-     * @param scheduler the shared scheduler
+     * @param schedulerAddress the IP address of the scheduler
+     * @param schedulerPort the port of the scheduler
      * @param droneID unique ID for the drone
      */
-    public DroneSubsystem(Scheduler scheduler, int droneID) {
-        this.scheduler = scheduler;
+    public DroneSubsystem(InetAddress schedulerAddress, int schedulerPort, int droneID) {
+        this.schedulerAddress = schedulerAddress;
+        this.schedulerPort = schedulerPort;
         this.droneID = droneID;
+        this.eventSocket = new EventSocket();
         
         states = new HashMap<>();
         states.put("IDLE", new idelState());
@@ -48,9 +58,18 @@ public class DroneSubsystem implements Runnable {
         states.put("REFILLING", new refillingState());
         states.put("FAULTED", new faultedState());
 
+        // Cache zones from scheduler at startup
+        zonesCache = (java.util.Map<Integer, Zone>) sendAndReceive(new UDPMessage(UDPMessage.Command.GET_ZONES));
+
         transitionTo(states.get("IDLE"));
         // Register this drone with the scheduler's tracking system
-        this.scheduler.registerDrone(droneID);
+        sendAndReceive(new UDPMessage(UDPMessage.Command.REGISTER_DRONE, droneID));
+    }
+
+    private Object sendAndReceive(UDPMessage request) {
+        eventSocket.send(request, schedulerAddress, schedulerPort);
+        UDPMessage response = (UDPMessage) eventSocket.receive();
+        return response != null ? response.response : null;
     }
 
     /**
@@ -60,7 +79,7 @@ public class DroneSubsystem implements Runnable {
      * @return travel time in seconds
      */
     private double computeEnRoute(FireEvent event) {
-        Zone target = scheduler.getZones().get(event.getZoneID());
+        Zone target = zonesCache.get(event.getZoneID());
 
         double zoneCenterX = target.getCenterX();
         double zoneCenterY = target.getCenterY();
@@ -93,7 +112,7 @@ public class DroneSubsystem implements Runnable {
 
     private void transitionTo(DroneStates newState) {
         this.state = newState;
-        scheduler.notifyDroneTransition(newState);
+        sendAndReceive(new UDPMessage(UDPMessage.Command.NOTIFY_TRANSITION, newState));
     }
 
     /**
@@ -125,7 +144,7 @@ public class DroneSubsystem implements Runnable {
      * @param event the fire event of the center zone destination
      */
     private void moveToZoneCenter(FireEvent event) {
-        Zone target = scheduler.getZones().get(event.getZoneID());
+        Zone target = zonesCache.get(event.getZoneID());
         currentX = target.getCenterX();
         currentY = target.getCenterY();
     }
@@ -162,7 +181,7 @@ public class DroneSubsystem implements Runnable {
     }
 
     public void toZoneCenter(FireEvent event) {
-        Zone zone = scheduler.getZones().get(event.getZoneID());
+        Zone zone = zonesCache.get(event.getZoneID());
         currentX = zone.getCenterX();
         currentY = zone.getCenterY();
     }
@@ -184,7 +203,7 @@ public class DroneSubsystem implements Runnable {
             try {
                 switch (state.getState()) {
                     case "IDLE":
-                        event = scheduler.getNextFireEvent();
+                        event = (FireEvent) sendAndReceive(new UDPMessage(UDPMessage.Command.GET_NEXT_FIRE_EVENT));
                         if (event == null) {
                             running = false; // Simulation complete
                         } else {
@@ -192,7 +211,7 @@ public class DroneSubsystem implements Runnable {
                             if (currentAgent < LOW_VOLUME) {
                                 System.out.printf("[Drone %d] Insufficient agent (%.1f%%). Must refill before accepting mission.\n", droneID, currentAgent);
                                 // Requeue the event since we can't handle it
-                                scheduler.newFireEvent(event);
+                                sendAndReceive(new UDPMessage(UDPMessage.Command.NEW_FIRE_EVENT, event));
                                 event = null;
                                 transitionTo(states.get("RETURNING"));
                             } else {
@@ -209,8 +228,8 @@ public class DroneSubsystem implements Runnable {
                         moveToZoneCenter(event);
 
                         // Push status update and notify arrival
-                        scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
-                        scheduler.droneArrivedAtZone(droneID, event);
+                        sendAndReceive(new UDPMessage(UDPMessage.Command.UPDATE_DRONE_STATUS, droneID, currentX, currentY, currentAgent));
+                        sendAndReceive(new UDPMessage(UDPMessage.Command.DRONE_ARRIVED_AT_ZONE, droneID, event));
                         transitionTo(states.get("EXTINGUISHING"));
                         break;
 
@@ -231,7 +250,7 @@ public class DroneSubsystem implements Runnable {
                         Thread.sleep((long) (dropTime * 10));
 
                         currentAgent -= volumeToDrop;
-                        scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
+                        sendAndReceive(new UDPMessage(UDPMessage.Command.UPDATE_DRONE_STATUS, droneID, currentX, currentY, currentAgent));
 
                         // Physical Simulation: Close doors
                         System.out.printf("[Drone %d] Closing nozzle doors... (%.1fs)\n", droneID, NOZZLE_DOORS);
@@ -240,11 +259,11 @@ public class DroneSubsystem implements Runnable {
                         // Check if the drone successfully extinguished the fire
                         if (volumeToDrop >= requiredVolume) {
                             System.out.printf("[Drone %d] Successfully extinguished fire in Zone %d!\n", droneID, event.getZoneID());
-                            scheduler.completeFireEvent(event);
+                            sendAndReceive(new UDPMessage(UDPMessage.Command.COMPLETE_FIRE_EVENT, event));
                         } else {
                             System.out.printf("[Drone %d] Ran out of agent! Fire in Zone %d not fully extinguished.\n", droneID, event.getZoneID());
                             // Re-queue the event so another drone can finish the job
-                            scheduler.newFireEvent(event);
+                            sendAndReceive(new UDPMessage(UDPMessage.Command.NEW_FIRE_EVENT, event));
                         }
 
                         // Always return to base after a drop (can be optimized in future iterations to chain nearby fires)
@@ -258,7 +277,7 @@ public class DroneSubsystem implements Runnable {
 
                         Thread.sleep((long) (returnTime * 10)); // Scaled
                         moveToBase();
-                        scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
+                        sendAndReceive(new UDPMessage(UDPMessage.Command.UPDATE_DRONE_STATUS, droneID, currentX, currentY, currentAgent));
 
                         transitionTo(states.get("REFILLING"));
                         break;
@@ -268,8 +287,8 @@ public class DroneSubsystem implements Runnable {
                         Thread.sleep(1500); // Simulate refill time
 
                         currentAgent = 100.0; // Agent replenished
-                        scheduler.droneReturnToBase(droneID); // Notify scheduler we are ready
-                        scheduler.updateDroneStatus(droneID, currentX, currentY, currentAgent);
+                        sendAndReceive(new UDPMessage(UDPMessage.Command.DRONE_RETURN_TO_BASE, droneID)); // Notify scheduler we are ready
+                        sendAndReceive(new UDPMessage(UDPMessage.Command.UPDATE_DRONE_STATUS, droneID, currentX, currentY, currentAgent));
 
                         transitionTo(states.get("IDLE"));
                         break;
@@ -288,6 +307,13 @@ public class DroneSubsystem implements Runnable {
         }
     }
     public static void main(String[] args) {
-        
+        try {
+            System.out.println("Starting DroneSubsystem 1...");
+            InetAddress schedulerAddress = InetAddress.getByName("localhost");
+            DroneSubsystem drone1 = new DroneSubsystem(schedulerAddress, 5000, 1);
+            drone1.run();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

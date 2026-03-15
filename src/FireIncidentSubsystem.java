@@ -9,17 +9,34 @@ import java.io.FileReader;
  */
 public class FireIncidentSubsystem implements Runnable {
 
-    private final Scheduler scheduler;
+    private final String schedulerHost;
+    private final int schedulerPort;
     private final String filePath;
+    private final EventSocket eventSocket;
 
     /**
      * Constructor for FireIncidentSubsystem
-     * @param scheduler the shared scheduler
+     * @param schedulerHost the host of the scheduler
+     * @param schedulerPort the port of the scheduler
      * @param filePath the path to the CSV event file
      */
-    public FireIncidentSubsystem(Scheduler scheduler, String filePath) {
-        this.scheduler = scheduler;
+    public FireIncidentSubsystem(String schedulerHost, int schedulerPort, String filePath) {
+        this.schedulerHost = schedulerHost;
+        this.schedulerPort = schedulerPort;
         this.filePath = filePath;
+        this.eventSocket = new EventSocket();
+    }
+
+    private Object sendAndReceive(UDPMessage request) {
+        try {
+            java.net.InetAddress address = java.net.InetAddress.getByName(schedulerHost);
+            eventSocket.send(request, address, schedulerPort);
+            UDPMessage response = (UDPMessage) eventSocket.receive();
+            return response != null ? response.response : null;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     /**
@@ -39,7 +56,14 @@ public class FireIncidentSubsystem implements Runnable {
                 FireEvent.Severity severity = FireEvent.Severity.valueOf(row[3].trim());
 
                 FireEvent event = new FireEvent(time, zoneID, type, severity);
-                scheduler.newFireEvent(event);
+                System.out.println("Processing event: Time=" + time + ", Zone=" + zoneID + ", Type=" + type + ", Severity=" + severity);
+                sendAndReceive(new UDPMessage(UDPMessage.Command.NEW_FIRE_EVENT, event));
+                
+                try {
+                    Thread.sleep(2000); // 2 second delay between sending events
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -54,10 +78,10 @@ public class FireIncidentSubsystem implements Runnable {
     public void run() {
         loadCSV(filePath);
 
-        scheduler.updateAllEventsDone();
+        sendAndReceive(new UDPMessage(UDPMessage.Command.UPDATE_ALL_EVENTS_DONE));
 
         while(true) {
-            FireEvent completed = scheduler.getCompletedEvent();
+            FireEvent completed = (FireEvent) sendAndReceive(new UDPMessage(UDPMessage.Command.GET_COMPLETED_EVENT));
             if(completed == null) {
                 break;
             }
@@ -65,6 +89,13 @@ public class FireIncidentSubsystem implements Runnable {
 
     }
     public static void main(String[] args) {
-
+        String csvFilePath = "event_file.csv";
+        System.out.println("Starting FireIncidentSubsystem...");
+        
+        // Host coordinates and scheduler port
+        FireIncidentSubsystem fireincident = new FireIncidentSubsystem("localhost", 5000, csvFilePath);
+        fireincident.run();
+        
+        System.out.println("FireIncidentSubsystem completed.");
     }
 }

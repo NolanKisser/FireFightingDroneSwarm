@@ -4,7 +4,7 @@
  * @author Jordan Grewal, Ozan Kaya, Nolan Kisser, Celina Yang
  * @version January 31, 2026
  */
-public class FireEvent {
+public class FireEvent{
 
     /**
      * The different event types

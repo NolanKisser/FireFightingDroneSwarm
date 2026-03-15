@@ -59,6 +59,11 @@ public class Scheduler implements Runnable {
     private final Map<Integer, Zone> zones = new HashMap<>();
     private final DroneSwarmMonitor monitor;
 
+    // UDP networking
+    private static final int PORT = 5000;
+    private EventSocket eventSocket;
+    private boolean isRunning = true;
+
 
     public Scheduler(String zoneFilePath) {
         this(zoneFilePath, null);
@@ -81,6 +86,15 @@ public class Scheduler implements Runnable {
     @Override
     public void run() {
         boolean running = true;
+
+        // Start UDP Server thread
+        try {
+            eventSocket = new EventSocket(PORT);
+            new Thread(this::listenUDP).start();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         while (running) {
             synchronized (this) {
                 try {
@@ -93,6 +107,8 @@ public class Scheduler implements Runnable {
 
                             if (allEventsDone && incompleteEvents.isEmpty() && activeDroneCount == 0) {
                                 running = false; // Simulation is finished
+                                isRunning = false;
+                                if(eventSocket != null) eventSocket.close();
                             } else if (!incompleteEvents.isEmpty()) {
                                 transitionTo(State.EVENT_QUEUED);
                             }
@@ -320,7 +336,78 @@ public class Scheduler implements Runnable {
         return currentState;
     }
 
-    public static void main(String[] args) {
+    private void listenUDP() {
+        while (isRunning) {
+            try {
+                java.net.DatagramPacket packet = eventSocket.receivePacket();
+                if (packet == null) continue;
 
+                new Thread(() -> {
+                    try {
+                        UDPMessage request = (UDPMessage) eventSocket.extractObject(packet);
+                        if (request == null) return;
+
+                        UDPMessage response = new UDPMessage(request.command);
+                        
+                        switch (request.command) {
+                            case NEW_FIRE_EVENT:
+                                newFireEvent((FireEvent) request.parameters[0]);
+                                break;
+                            case GET_NEXT_FIRE_EVENT:
+                                response.response = getNextFireEvent();
+                                break;
+                            case UPDATE_DRONE_STATUS:
+                                updateDroneStatus((Integer) request.parameters[0], (Double) request.parameters[1], (Double) request.parameters[2], (Double) request.parameters[3]);
+                                break;
+                            case REPORT_FAULT:
+                                reportFault((Integer) request.parameters[0], (FaultType) request.parameters[1]);
+                                break;
+                            case DRONE_ARRIVED_AT_ZONE:
+                                droneArrivedAtZone((Integer) request.parameters[0], (FireEvent) request.parameters[1]);
+                                break;
+                            case DRONE_RETURN_TO_BASE:
+                                droneReturnToBase((Integer) request.parameters[0]);
+                                break;
+                            case UPDATE_ALL_EVENTS_DONE:
+                                updateAllEventsDone();
+                                break;
+                            case COMPLETE_FIRE_EVENT:
+                                completeFireEvent((FireEvent) request.parameters[0]);
+                                break;
+                            case GET_COMPLETED_EVENT:
+                                response.response = getCompletedEvent();
+                                break;
+                            case REGISTER_DRONE:
+                                registerDrone((Integer) request.parameters[0]);
+                                break;
+                            case NOTIFY_TRANSITION:
+                                notifyDroneTransition((DroneStates) request.parameters[0]);
+                                break;
+                            case GET_ZONES:
+                                response.response = new HashMap<>(getZones());
+                                break;
+                        }
+                        
+                        eventSocket.send(response, packet.getAddress(), packet.getPort());
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }).start();
+                
+            } catch (Exception e) {
+                if (isRunning) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        String zonesFilePath = "zone_file.csv";
+        DroneSwarmMonitor monitor = new DroneSwarmMonitor();
+        Scheduler scheduler = new Scheduler(zonesFilePath, monitor);
+        
+        System.out.println("Starting Scheduler UDP service on port 5000...");
+        scheduler.run();
     }
 }
