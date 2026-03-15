@@ -9,7 +9,6 @@ public class Main {
      * @param args command line arguments
      */
     public static void main(String[] args) {
-        String csvFilePath = "event_file.csv";
         String zonesFilePath = "zone_file.csv";
         DroneSwarmMonitor monitor =  new DroneSwarmMonitor();
         Scheduler scheduler = new Scheduler(zonesFilePath, monitor);

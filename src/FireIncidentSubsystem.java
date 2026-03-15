@@ -16,7 +16,7 @@ public class FireIncidentSubsystem implements Runnable {
     // private final Scheduler scheduler;
     private final String filePath;
 
-    private DatagramPacket sendPacket, receivePacket;
+    private DatagramPacket sendPacket;
     private DatagramSocket sendReceiveSocket;
     int SCHEDULER_PORT = 6000;
     String SCHEDULER_HOST = "localhost";
