@@ -1,3 +1,6 @@
+import model.*;
+import subsystems.*;
+import ui.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;

@@ -1,3 +1,5 @@
+import subsystems.*;
+import ui.*;
 /**
  * Main class for the Firefighting Drone Swarm simulation
  * @author Jordan Grewal, Ozan Kaya, Nolan Kisser, Celina Yang
