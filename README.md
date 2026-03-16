@@ -76,8 +76,10 @@ This project simulates a swarm of autonomous drones designed to detect and extin
     * Go to **File > Project Structure > Libraries**
     * Click **+** and select **From Maven...**
     * Search for `org.junit.jupiter:junit-jupiter:5.10.1` and add it.
-5.  Navigate to `src/Main.java`.
-6.  Right-click `Main.java` and select **Run 'Main.main()'**.
+5.  Run each subsystem individually in the following order:
+    * Right-click and run `Scheduler.java`.
+    * Right-click and run `DroneSubsystem.java`. You can run multiple instances of this to simulate a larger swarm by passing a unique argument (e.g., Drone ID) in the Run Configuration for each drone.
+    * Right-click and run `FireIncidentSubsystem.java` to start feeding the events.
 
 ### Option 2: Command Line
 1.  Navigate to the `src` directory:
@@ -86,17 +88,29 @@ This project simulates a swarm of autonomous drones designed to detect and extin
     ```
 2.  Compile the Java files:
     ```bash
-    javac Main.java Scheduler.java FireIncidentSubsystem.java DroneSubsystem.java FireEvent.java Zone.java
+    javac model/*.java subsystems/*.java ui/*.java Main.java
     ```
-3.  Run the application (ensure CSV files are in the root project directory, you may need to move them to `src` or adjust paths in `Main.java` if running from CLI depending on your classpath):
+3.  Run the application by starting each subsystem in a separate terminal:
+    
+    **Terminal 1 (Scheduler):**
     ```bash
-    java Main
+    java subsystems.Scheduler
+    ```
+    
+    **Terminal 2 (Drone - run in multiple terminals for multiple drones):**
+    ```bash
+    java subsystems.DroneSubsystem 1  # Pass a unique ID as an argument
+    ```
+    
+    **Terminal 3 (Fire Incidents):**
+    ```bash
+    java subsystems.FireIncidentSubsystem
     ```
 
 ## Usage
 1.  **Configure Zones:** Edit `zone_file.csv` to define the layout of the monitored area.
 2.  **Create Scenarios:** Edit `event_file.csv` to add new fire events or requests.
-3.  **Run Simulation:** Start the program. The console will output the status of the drones as they travel to zones, extinguish fires, and return to base.
+3.  **Run Simulation:** Start the subsystems in the sequence described above. The console will output the status of the drones as they travel to zones, extinguish fires, and return to base.
 
 ## Output Example
 ```text
