@@ -1,3 +1,5 @@
+import subsystems.*;
+import ui.*;
 /**
  * Main class for the Firefighting Drone Swarm simulation
  * @author Jordan Grewal, Ozan Kaya, Nolan Kisser, Celina Yang
@@ -9,7 +11,6 @@ public class Main {
      * @param args command line arguments
      */
     public static void main(String[] args) {
-        String csvFilePath = "event_file.csv";
         String zonesFilePath = "zone_file.csv";
         DroneSwarmMonitor monitor =  new DroneSwarmMonitor();
         Scheduler scheduler = new Scheduler(zonesFilePath, monitor);
@@ -18,9 +19,7 @@ public class Main {
         Thread schedulerThread = new Thread(scheduler, "Scheduler-Thread");
         schedulerThread.start();
 
-        Thread fireincidentsubsystem = new Thread(new FireIncidentSubsystem(csvFilePath));
         Thread dronesubsystem = new Thread(new DroneSubsystem(scheduler, 1));
-        fireincidentsubsystem.start();
         dronesubsystem.start();
         monitor.addLog("SYSTEM", "Started");
 

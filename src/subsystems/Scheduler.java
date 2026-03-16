@@ -1,3 +1,8 @@
+package subsystems;
+
+import model.*;
+import ui.*;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -171,6 +176,15 @@ public class Scheduler implements Runnable {
                     double statusAgent = Double.parseDouble(messageParts[5]);
 
                     updateDroneStatus(statusDroneID, statusX, statusY, statusAgent);
+                    DroneStatus statusPtr = droneStatuses.get(statusDroneID);
+                    if (monitor != null && statusPtr != null) {
+                        String zoneStr = statusPtr.currentMission != null ? String.valueOf(statusPtr.currentMission.getZoneID()) : "N/A";
+                        String sevStr = statusPtr.currentMission != null ? statusPtr.currentMission.getSeverity().toString() : "N/A";
+                        monitor.updateDroneStatus(statusDroneID, statusDroneState, zoneStr, sevStr, statusAgent, statusX, statusY);
+                    }
+                    if (monitor != null && statusDroneState.equals("IDLE")) {
+                        monitor.updateDroneStatus(statusDroneID, statusDroneState, "N/A", "N/A", statusAgent, statusX, statusY);
+                    }
                     break;
                 case "DRONE_ARRIVE_TO_ZONE":
                     // DRONE_ARRIVED,droneID,time,zoneID,severity
@@ -379,6 +393,9 @@ public class Scheduler implements Runnable {
      * @param fireEvent event to add
      */
     public synchronized void newFireEvent(FireEvent fireEvent) {
+        if (monitor != null) {
+            monitor.addActiveFire(fireEvent.getZoneID());
+        }
         incompleteEvents.add(fireEvent);
         updateMonitorCounts();
         notifyAll();
@@ -506,6 +523,10 @@ public class Scheduler implements Runnable {
      * @param fireEvent
      */
     public synchronized void completeFireEvent(FireEvent fireEvent) {
+        if (monitor != null) {
+            monitor.removeActiveFire(fireEvent.getZoneID());
+            monitor.addExtinguishedFire(fireEvent.getZoneID());
+        }
         completeEvents.add(fireEvent);
         updateMonitorCounts();
         notifyAll();
@@ -573,7 +594,6 @@ public class Scheduler implements Runnable {
 
     public void notifyDroneTransition(DroneSubsystem.DroneState state) {
         if (monitor != null) {
-            monitor.setDroneState(state.name());
             monitor.setActiveFires(getActiveFireCount());
         }
     }

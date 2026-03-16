@@ -1,5 +1,16 @@
+package ui;
+
+import model.*;
+
 import javax.swing.*;
 import java.awt.*;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * ZoneMap class represents Zones for the Firefighting Drone Swarm.
@@ -8,15 +19,67 @@ import java.awt.*;
  */
 
 public class ZoneMap extends JPanel {
-    private static final int[][] DUMMY_ZONES = {
-            {1, 0, 0, 1000, 700},
-            {2, 1000, 0, 2000, 700},
-            {3, 0, 700, 1000, 1500},
-            {4, 1000, 700, 2000, 1500}
-    };
+    private final List<Zone> zones = new ArrayList<>();
+
+    public void loadZonesCSV(String zoneFilePath) {
+        zones.clear();
+        try (BufferedReader br = new BufferedReader(new FileReader(zoneFilePath))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] row = line.split(",");
+                if (row.length < 3) continue;
+                int zoneID = Integer.parseInt(row[0].trim());
+                String[] startCoords = row[1].replace("(", "").replace(")", "").split(";");
+                int x1 = Integer.parseInt(startCoords[0].trim());
+                int y1 = Integer.parseInt(startCoords[1].trim());
+                String[] endCoords = row[2].replace("(", "").replace(")", "").split(";");
+                int x2 = Integer.parseInt(endCoords[0].trim());
+                int y2 = Integer.parseInt(endCoords[1].trim());
+                zones.add(new Zone(zoneID, x1, y1, x2, y2));
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        repaint();
+    }
+
+    private static class DroneRenderInfo {
+        double x, y;
+        String state;
+    }
+    
+    private final Map<Integer, DroneRenderInfo> drones = new ConcurrentHashMap<>();
+    private final java.util.Set<Integer> activeFires = ConcurrentHashMap.newKeySet();
+    private final java.util.Set<Integer> extinguishedFires = ConcurrentHashMap.newKeySet();
+
+    public void addActiveFire(int zoneID) {
+        activeFires.add(zoneID);
+        extinguishedFires.remove(zoneID);
+        repaint();
+    }
+
+    public void removeActiveFire(int zoneID) {
+        activeFires.remove(zoneID);
+        repaint();
+    }
+
+    public void addExtinguishedFire(int zoneID) {
+        activeFires.remove(zoneID);
+        extinguishedFires.add(zoneID);
+        repaint();
+    }
+
+    public void updateDrone(int id, double x, double y, String state) {
+        DroneRenderInfo info = drones.computeIfAbsent(id, k -> new DroneRenderInfo());
+        info.x = x;
+        info.y = y;
+        info.state = state;
+        repaint();
+    }
 
     public ZoneMap() {
         this.setBackground(Color.WHITE);
+        loadZonesCSV("zone_file.csv");
     }
 
     @Override
@@ -130,11 +193,11 @@ public class ZoneMap extends JPanel {
         g2.drawString("Drone Returning", descX, descTextY);
 
         //Draw Zones from dummy data
-        for (int[] z : DUMMY_ZONES) {
-            int x = offsetX + (int) (z[1] * fitScale);
-            int y = offsetY + (int) (z[2] * fitScale);
-            int w = (int) ((z[3] - z[1]) * fitScale);
-            int h = (int) ((z[4] - z[2]) * fitScale);
+        for (Zone z : zones) {
+            int x = offsetX + (int) (z.getX1() * fitScale);
+            int y = offsetY + (int) (z.getY1() * fitScale);
+            int w = (int) ((z.getX2() - z.getX1()) * fitScale);
+            int h = (int) ((z.getY2() - z.getY1()) * fitScale);
 
             g2.setColor(new Color(150, 100, 200));
             g2.setStroke(new BasicStroke(2));
@@ -148,11 +211,61 @@ public class ZoneMap extends JPanel {
             g2.fillRect(x + 1, y + 1, Math.max(0, labelBoxW - 2), Math.max(0, labelBoxH - 2));
             g2.setColor(Color.BLACK);
             g2.setFont(new Font("SansSerif", Font.PLAIN, 12));
-            String label = "Z(" + z[0] + ")";
+            String label = "Z(" + z.getZoneID() + ")";
             FontMetrics fm = g2.getFontMetrics();
             int textX = x + (labelBoxW - fm.stringWidth(label)) / 2;
             int textY = y + (labelBoxH + fm.getAscent() - fm.getDescent()) / 2;
             g2.drawString(label, textX, textY);
+
+            // Draw active or extinguished fire at the center of the zone (1 unit block = 1 GRID_SIZE)
+            int fireUnitSize = (int) (GRID_SIZE * fitScale);
+            int centerX = offsetX + (int) (z.getCenterX() * fitScale);
+            int centerY = offsetY + (int) (z.getCenterY() * fitScale);
+
+            if (activeFires.contains(z.getZoneID())) {
+                g2.setColor(new Color(220, 40, 40)); // Red active fire
+                // Center the unit block on the logical center coordinate
+                g2.fillRect(centerX - fireUnitSize / 2, centerY - fireUnitSize / 2, fireUnitSize, fireUnitSize);
+                g2.setColor(Color.BLACK);
+                g2.drawRect(centerX - fireUnitSize / 2, centerY - fireUnitSize / 2, fireUnitSize, fireUnitSize);
+            } else if (extinguishedFires.contains(z.getZoneID())) {
+                g2.setColor(new Color(90, 170, 70)); // Green extinguished fire
+                // Center the unit block on the logical center coordinate
+                g2.fillRect(centerX - fireUnitSize / 2, centerY - fireUnitSize / 2, fireUnitSize, fireUnitSize);
+                g2.setColor(Color.BLACK);
+                g2.drawRect(centerX - fireUnitSize / 2, centerY - fireUnitSize / 2, fireUnitSize, fireUnitSize);
+            }
+        }
+
+        // Draw Drones
+        for (Map.Entry<Integer, DroneRenderInfo> entry : drones.entrySet()) {
+            int id = entry.getKey();
+            DroneRenderInfo info = entry.getValue();
+            
+            int droneX = offsetX + (int) (info.x * fitScale);
+            int droneY = offsetY + (int) (info.y * fitScale);
+            int droneSize = (int) (GRID_SIZE * fitScale); // Render size as 1 strict unit
+            
+            if ("EN_ROUTE".equals(info.state)) {
+                g2.setColor(new Color(240, 200, 60)); // Yellow
+            } else if ("EXTINGUISHING".equals(info.state)) {
+                g2.setColor(new Color(110, 160, 60)); // Green
+            } else if ("RETURNING".equals(info.state)) {
+                g2.setColor(new Color(190, 110, 200)); // Purple
+            } else if ("IDLE".equals(info.state) || "REFILLING".equals(info.state)) {
+                g2.setColor(Color.BLUE); // Base / Default
+            } else {
+                g2.setColor(Color.RED); // Faulted or unknown
+            }
+            
+            g2.fillRect(droneX - droneSize/2, droneY - droneSize/2, droneSize, droneSize);
+            g2.setColor(Color.BLACK);
+            g2.drawRect(droneX - droneSize/2, droneY - droneSize/2, droneSize, droneSize);
+            
+            g2.setFont(new Font("SansSerif", Font.BOLD, Math.max(10, (int) (18 * fitScale))));
+            String droneLabel = "D(" + id + ")";
+            FontMetrics fm = g2.getFontMetrics();
+            g2.drawString(droneLabel, droneX - fm.stringWidth(droneLabel) / 2, droneY + fm.getAscent() / 2 - 2);
         }
     }
 }

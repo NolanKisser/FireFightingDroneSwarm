@@ -15,6 +15,7 @@ This project simulates a swarm of autonomous drones designed to detect and extin
 **Iteration 3**
 * **UDP Networking:** Full transition from local thread-based communication to Datagram-based networking between subsystems
 * **Scheduler Logic**: Enhanced Scheduler logic  coordinates multiple drones, ensuring a balanced workload
+* **GUI Visualization:** A simple GUI for monitoring drone activity
 
 ## Authors
 * Jordan Grewal
@@ -26,17 +27,20 @@ This project simulates a swarm of autonomous drones designed to detect and extin
 ### Diagrams (`diagrams/`)
 * **`Iteration 1/`**: Contains diagrams for the first iteration of the project.
 * **`Iteration 2/`**: Contains diagrams for the second iteration of the project.
-* **`Iteration 2/`**: Contains diagrams for the third iteration of the project.
+* **`Iteration 3/`**: Contains diagrams for the third iteration of the project.
 
 ### Source Code (`src/`)
-* **`DroneSubsystem.java`**: The "Client" that simulates a physical drone using a lifecycle state machine. It retrieves events from the `Scheduler`, calculates flight/extinguish times, and reports completion.
-* **`DroneSwarmMonitor.java`**: A simple GUI for monitoring drone activity.
-* **`FireIncidentSubsystem.java`**: The "Client" that acts as the input generator. It reads fire events from `event_file.csv` and submits them to the Scheduler.
-* **`FireEvent.java`**: A data transfer object representing a specific event (e.g., `FIRE_DETECTED`, `DRONE_REQUEST`) including details like time, zone ID, and severity.
 * **`Main.java`**: The entry point of the application. It initializes the `Scheduler`, starts the `FireIncidentSubsystem` and `DroneSubsystem` threads, and manages the simulation lifecycle.
-* **`Scheduler.java`**: Acts as the central server/monitor. It manages the queue of `FireEvent` objects, synchronizing access between the input subsystem and the drones. It maintains the drones operational states and coordinates drone notifications. It also loads zone data.
-* **`Zone.java`**: Represents a physical area defined by coordinates (x1, y1) to (x2, y2). Includes logic to calculate the center point for drone travel.
-* **`ZoneMap.java`**: A static map of zones to display on the console.
+* **`model/`**
+  * **`FireEvent.java`**: A data transfer object representing a specific event (e.g., `FIRE_DETECTED`, `DRONE_REQUEST`) including details like time, zone ID, and severity.
+  * **`Zone.java`**: Represents a physical area defined by coordinates (x1, y1) to (x2, y2). Includes logic to calculate the center point for drone travel.
+* **`subsystems/`**
+  * **`DroneSubsystem.java`**: The "Client" that simulates a physical drone using a lifecycle state machine. It retrieves events from the `Scheduler`, calculates flight/extinguish times, and reports completion.
+  * **`FireIncidentSubsystem.java`**: The "Client" that acts as the input generator. It reads fire events from `event_file.csv` and submits them to the Scheduler.
+  * **`Scheduler.java`**: Acts as the central server/monitor. It manages the queue of `FireEvent` objects, synchronizing access between the input subsystem and the drones. It maintains the drones operational states and coordinates drone notifications. It also loads zone data.
+* **`ui/`**
+  * **`DroneSwarmMonitor.java`**: A simple GUI for monitoring drone activity.
+  * **`ZoneMap.java`**: A static map of zones to display on the console.
 
 ### Data Files
 * **`event_file.csv`**: Contains the list of fire incidents to simulate.
@@ -72,8 +76,10 @@ This project simulates a swarm of autonomous drones designed to detect and extin
     * Go to **File > Project Structure > Libraries**
     * Click **+** and select **From Maven...**
     * Search for `org.junit.jupiter:junit-jupiter:5.10.1` and add it.
-5.  Navigate to `src/Main.java`.
-6.  Right-click `Main.java` and select **Run 'Main.main()'**.
+5.  Run each subsystem individually in the following order:
+    * Right-click and run `Scheduler.java`.
+    * Right-click and run `DroneSubsystem.java`. You can run multiple instances of this to simulate a larger swarm by passing a unique argument (e.g., Drone ID) in the Run Configuration for each drone.
+    * Right-click and run `FireIncidentSubsystem.java` to start feeding the events.
 
 ### Option 2: Command Line
 1.  Navigate to the `src` directory:
@@ -82,17 +88,29 @@ This project simulates a swarm of autonomous drones designed to detect and extin
     ```
 2.  Compile the Java files:
     ```bash
-    javac Main.java Scheduler.java FireIncidentSubsystem.java DroneSubsystem.java FireEvent.java Zone.java
+    javac model/*.java subsystems/*.java ui/*.java Main.java
     ```
-3.  Run the application (ensure CSV files are in the root project directory, you may need to move them to `src` or adjust paths in `Main.java` if running from CLI depending on your classpath):
+3.  Run the application by starting each subsystem in a separate terminal:
+    
+    **Terminal 1 (Scheduler):**
     ```bash
-    java Main
+    java subsystems.Scheduler
+    ```
+    
+    **Terminal 2 (Drone - run in multiple terminals for multiple drones):**
+    ```bash
+    java subsystems.DroneSubsystem 1  # Pass a unique ID as an argument
+    ```
+    
+    **Terminal 3 (Fire Incidents):**
+    ```bash
+    java subsystems.FireIncidentSubsystem
     ```
 
 ## Usage
 1.  **Configure Zones:** Edit `zone_file.csv` to define the layout of the monitored area.
 2.  **Create Scenarios:** Edit `event_file.csv` to add new fire events or requests.
-3.  **Run Simulation:** Start the program. The console will output the status of the drones as they travel to zones, extinguish fires, and return to base.
+3.  **Run Simulation:** Start the subsystems in the sequence described above. The console will output the status of the drones as they travel to zones, extinguish fires, and return to base.
 
 ## Output Example
 ```text
