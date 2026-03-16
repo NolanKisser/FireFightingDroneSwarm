@@ -15,6 +15,7 @@ This project simulates a swarm of autonomous drones designed to detect and extin
 **Iteration 3**
 * **UDP Networking:** Full transition from local thread-based communication to Datagram-based networking between subsystems
 * **Scheduler Logic**: Enhanced Scheduler logic  coordinates multiple drones, ensuring a balanced workload
+* **GUI Visualization:** A simple GUI for monitoring drone activity
 
 ## Authors
 * Jordan Grewal
@@ -29,14 +30,17 @@ This project simulates a swarm of autonomous drones designed to detect and extin
 * **`Iteration 3/`**: Contains diagrams for the third iteration of the project.
 
 ### Source Code (`src/`)
-* **`DroneSubsystem.java`**: The "Client" that simulates a physical drone using a lifecycle state machine. It retrieves events from the `Scheduler`, calculates flight/extinguish times, and reports completion.
-* **`DroneSwarmMonitor.java`**: A simple GUI for monitoring drone activity.
-* **`FireIncidentSubsystem.java`**: The "Client" that acts as the input generator. It reads fire events from `event_file.csv` and submits them to the Scheduler.
-* **`FireEvent.java`**: A data transfer object representing a specific event (e.g., `FIRE_DETECTED`, `DRONE_REQUEST`) including details like time, zone ID, and severity.
 * **`Main.java`**: The entry point of the application. It initializes the `Scheduler`, starts the `FireIncidentSubsystem` and `DroneSubsystem` threads, and manages the simulation lifecycle.
-* **`Scheduler.java`**: Acts as the central server/monitor. It manages the queue of `FireEvent` objects, synchronizing access between the input subsystem and the drones. It maintains the drones operational states and coordinates drone notifications. It also loads zone data.
-* **`Zone.java`**: Represents a physical area defined by coordinates (x1, y1) to (x2, y2). Includes logic to calculate the center point for drone travel.
-* **`ZoneMap.java`**: A static map of zones to display on the console.
+* **`model/`**
+  * **`FireEvent.java`**: A data transfer object representing a specific event (e.g., `FIRE_DETECTED`, `DRONE_REQUEST`) including details like time, zone ID, and severity.
+  * **`Zone.java`**: Represents a physical area defined by coordinates (x1, y1) to (x2, y2). Includes logic to calculate the center point for drone travel.
+* **`subsystems/`**
+  * **`DroneSubsystem.java`**: The "Client" that simulates a physical drone using a lifecycle state machine. It retrieves events from the `Scheduler`, calculates flight/extinguish times, and reports completion.
+  * **`FireIncidentSubsystem.java`**: The "Client" that acts as the input generator. It reads fire events from `event_file.csv` and submits them to the Scheduler.
+  * **`Scheduler.java`**: Acts as the central server/monitor. It manages the queue of `FireEvent` objects, synchronizing access between the input subsystem and the drones. It maintains the drones operational states and coordinates drone notifications. It also loads zone data.
+* **`ui/`**
+  * **`DroneSwarmMonitor.java`**: A simple GUI for monitoring drone activity.
+  * **`ZoneMap.java`**: A static map of zones to display on the console.
 
 ### Data Files
 * **`event_file.csv`**: Contains the list of fire incidents to simulate.
