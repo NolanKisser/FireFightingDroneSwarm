@@ -9,12 +9,14 @@ import java.net.*;
  * DroneSubsystem class represents a single firefighter drone.
  * The firefighter drone repeats the next incomplete FireEvent from the Scheduler and simulates
  * extinguishing the fire then reports back to the Scheduler of completion.
- * @author Jordan Grewal, Ozan Kaya, Nolan Kisser, Celina Yang
- * @version February 14, 2026
+ * @author Jordan Grewal, Nolan Kisser, Celina Yang
+ * @version March 15, 2026
  */
 public class DroneSubsystem implements Runnable {
 
-
+    /**
+     * Possible operating states of a drone
+     */
     public enum DroneState {
         IDLE,
         EN_ROUTE,
@@ -23,6 +25,7 @@ public class DroneSubsystem implements Runnable {
         REFILLING,
         FAULTED
     }
+
     private final Scheduler scheduler;
     private final int droneID;
     private DroneState state;
@@ -50,6 +53,11 @@ public class DroneSubsystem implements Runnable {
 
     private boolean running = true;
 
+    /**
+     * Constructs a new drone subsystem
+     * @param scheduler the scheduler coordinating the simulation
+     * @param droneID the unique ID of this drone
+     */
     public DroneSubsystem(Scheduler scheduler, int droneID) {
         this.scheduler = scheduler;
         this.droneID = droneID;
@@ -63,9 +71,14 @@ public class DroneSubsystem implements Runnable {
         }
     }
 
+    /**
+     * Starts one or more drone subsystem threads as an individual process
+     * @param args command line arguments
+     */
     public static void main(String[] args) {
 
         int id = 1;
+        int id2 = 2;
         if (args.length > 0) {
             try {
                 id = Integer.parseInt(args[0]);
@@ -76,15 +89,27 @@ public class DroneSubsystem implements Runnable {
 
         Scheduler scheduler = new Scheduler("zone_file.csv");
         DroneSubsystem drone = new DroneSubsystem(scheduler, id);
+        DroneSubsystem drone2 = new DroneSubsystem(scheduler, id2);
         Thread droneThread = new Thread(drone);
+        Thread drone2Thread = new Thread(drone2);
         droneThread.start();
+        drone2Thread.start();
     }
 
+    /**
+     * Sends a message to the scheduler and waits for the reply
+     * @param message the message to send
+     * @return the scheduler's reply message
+     */
     private String sendAndReceive(String message) {
         sendOnly(message);
         return receiveOnly();
     }
 
+    /**
+     * Send a UDP message to the scheduler
+     * @param message the message to send
+     */
     private void sendOnly(String message) {
         byte[] bytes = message.getBytes();
 
@@ -99,6 +124,10 @@ public class DroneSubsystem implements Runnable {
         System.out.println("[Drone " + droneID + "] message sent: " + message);
     }
 
+    /**
+     * Receives a UDP reply from the scheduler
+     * @return the received message as a string
+     */
     private String receiveOnly() {
         receivePacket = new  DatagramPacket(new byte[1024], 1024);
 
@@ -145,6 +174,11 @@ public class DroneSubsystem implements Runnable {
         return dropTime + nozzleTime;
     }
 
+    /**
+     * Returns the volume required based on the severity of the fire
+     * @param event the fire being serviced
+     * @return the required volume
+     */
     private double getRequiredVolume(FireEvent event) {
         return switch (event.getSeverity()) {
             case Low -> LOW_VOLUME;
@@ -153,6 +187,10 @@ public class DroneSubsystem implements Runnable {
         };
     }
 
+    /**
+     * Transitions the drone to a new operating state
+     * @param newState the new drone state
+     */
     private void transitionTo(DroneState newState) {
         this.state = newState;
 //         scheduler.notifyDroneTransition(newState);
@@ -227,40 +265,79 @@ public class DroneSubsystem implements Runnable {
         currentY = 0.0;
     }
 
+    /**
+     * Return the drone's current X coordinate
+     * @return current x coordinate
+     */
     public double getCurrentX() {
         return currentX;
     }
 
+    /**
+     * Return the drone's current Y coordinate
+     * @return current y coordinate
+     */
     public double getCurrentY() {
         return currentY;
     }
 
+    /**
+     * Returns the enroute travel time for the given fire event
+     * @param event the fire event
+     * @return the travel time in seconds
+     */
     public double getEnRoute(FireEvent event) {
         return computeEnRoute(event);
     }
+
+    /**
+     * Returns the extinguishing time for the given fire event
+     * @param event the fire event
+     * @return the extinguishing time in seconds
+     */
     public double getExtinguish(FireEvent event) {
         return computeExtinguish(event);
     }
 
+    /**
+     * Return the return to base travel time for the given fire event
+     * @param event the fire event
+     * @return the return time in seconds
+     */
     public double getReturn(FireEvent event) {
         return computeReturn(event);
     }
 
+    /**
+     * Return the drone's current operating state
+     * @return the current drone state
+     */
     public DroneState getDroneState() {
         return state;
     }
 
+    /**
+     * Move the drone to the center of the given event's zone
+     * @param event the fire event
+     */
     public void toZoneCenter(FireEvent event) {
         Zone zone = scheduler.getZones().get(event.getZoneID());
         currentX = zone.getCenterX();
         currentY = zone.getCenterY();
     }
 
+    /**
+     * Move the drone to base coordinates (0,0)
+     */
     public void toBase() {
         currentX = 0.0;
         currentY = 0.0;
     }
 
+    /**
+     * Handles the drone's behaviour based on its current state
+     * @throws InterruptedException if the thread is interrupted during simulation
+     */
     private synchronized void handleEvent() throws InterruptedException {
         switch (state) {
             case IDLE:

@@ -18,16 +18,23 @@ import java.util.Queue;
 /**
  * Scheduler class communicates and synchronizes the FireIncidentSubsystem and the DroneSubsystem.
  * Updated to use an active switch state machine.
- * * @author Jordan Grewal, Ozan Kaya, Nolan Kisser, Celina Yang
+ * @author Jordan Grewal, Nolan Kisser, Celina Yang
+ * @version March 15, 2026
  */
 public class Scheduler implements Runnable {
 
+    /**
+     * Operating state of the scheduler
+     */
     public enum State {
         WAITING,
         EVENT_QUEUED,
         DRONE_ACTIVE
     }
 
+    /**
+     * Possibly fault conditions a drone may report
+     */
     public enum FaultType {
         NONE,
         COMMUNICATION_LOST,
@@ -35,7 +42,9 @@ public class Scheduler implements Runnable {
         STUCK_IN_FLIGHT
     }
 
-    // Tracks the internal state of each drone
+    /**
+     * Stores status and information for each drone
+     */
     public static class DroneStatus {
         public int droneID;
         public double currentX;
@@ -49,6 +58,10 @@ public class Scheduler implements Runnable {
 
         public boolean waitingForEvent;
 
+        /**
+         * Constructs a new DroneStatus with default values
+         * @param id unique ID of the drone
+         */
         public DroneStatus(int id) {
             this.droneID = id;
             this.currentX = 0.0;
@@ -84,16 +97,28 @@ public class Scheduler implements Runnable {
     private DatagramSocket socket;
     private boolean udpRunning = true;
 
-
+    /**
+     * Constructs a Scheduler with provided zone CSV file path
+     * @param zoneFilePath path to CSV file containing zones
+     */
     public Scheduler(String zoneFilePath) {
         this(zoneFilePath, null);
     }
 
+    /**
+     * Constructs a Scheduler with provided zone CSV file path and monitor for UI updates
+     * @param zoneFilePath path for CSV file containing zones
+     * @param monitor monitor for simulation
+     */
     public Scheduler(String zoneFilePath, DroneSwarmMonitor monitor) {
         this.monitor = monitor;
         loadZonesCSV(zoneFilePath);
     }
 
+    /**
+     * Transitions the scheduler to a new state and updates the monitor
+     * @param newState the new state to enter
+     */
     private void transitionTo(State newState) {
         this.currentState = newState;
         updateMonitorCounts();
@@ -101,6 +126,10 @@ public class Scheduler implements Runnable {
     }
 
 
+    /**
+     * Starts the scheduler as separate process
+     * @param args command line arguments
+     */
     public static void main(String[] args) {
         String zonesFilePath = "zone_file.csv";
         DroneSwarmMonitor monitor = new DroneSwarmMonitor();
@@ -108,7 +137,9 @@ public class Scheduler implements Runnable {
         scheduler.run();
     }
 
-
+    /**
+     * Starts the UDP server used to receive messages from drones and fire incident subsystem
+     */
     public void startUDPServer() {
         try {
             socket = new DatagramSocket(schedulerPort);
@@ -142,6 +173,12 @@ public class Scheduler implements Runnable {
         }
     }
 
+    /**
+     * Handles incoming UDP message and routes it to the appropriate scheduler behaviour based on message type
+     * @param message the received message contents
+     * @param address the ip address
+     * @param port    the UDP port
+     */
     private synchronized void handleUDPMessage(String message, InetAddress address, int port) {
         try {
             String[] messageParts = message.split(",");
@@ -277,15 +314,18 @@ public class Scheduler implements Runnable {
                     // REQUEUE_EVENT,droneID,time,zoneID,severity
                     break;
 
-
-
-
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
+    /**
+     * Sends a UDP message to the specified address and port
+     * @param message the message to send
+     * @param address the ip address
+     * @param port    the UDP port
+     */
     private void sendUDPMessage(String message, InetAddress address, int port) {
         try {
             if (socket == null || socket.isClosed()) return;
@@ -301,8 +341,6 @@ public class Scheduler implements Runnable {
             throw new RuntimeException(e);
         }
     }
-
-
 
     /**
      * Active state machine loop managing the Scheduler's states.
@@ -379,6 +417,12 @@ public class Scheduler implements Runnable {
         }
     }
 
+    /**
+     * Registers a drone with the scheduler or updates its network information if known
+     * @param droneID the id of the drone
+     * @param address the ip address of the drone
+     * @param port    the UDP port used by the drone
+     */
     public synchronized void registerDrone(int droneID, InetAddress address, int port) {
         droneStatuses.putIfAbsent(droneID, new DroneStatus(droneID));
 
@@ -464,6 +508,11 @@ public class Scheduler implements Runnable {
         }
     }
 
+    /**
+     * Records a fault for a drone and re-queues its mission if needed
+     * @param droneID the id of the drone that faulted
+     * @param fault   the fault types that occurred
+     */
     public synchronized void reportFault(int droneID, FaultType fault) {
         DroneStatus status = droneStatuses.get(droneID);
         if (status != null) {

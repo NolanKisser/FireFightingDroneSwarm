@@ -13,8 +13,8 @@ import java.net.InetAddress;
 /**
  * FireIncidentSubsystem class reads the fire events from the given CSV event file and sends to
  * the Scheduler.
- * @author Jordan Grewal, Ozan Kaya, Nolan Kisser, Celina Yang
- * @version January 31, 2026
+ * @author Jordan Grewal, Nolan Kisser, Celina Yang
+ * @version March 15, 2026
  */
 public class FireIncidentSubsystem implements Runnable {
 
@@ -69,6 +69,10 @@ public class FireIncidentSubsystem implements Runnable {
         sendOnly();
     }
 
+    /**
+     * Send a single fire event to the scheduler as a UDP message
+     * @param event the fire event to send
+     */
     private void sendFireEvent(FireEvent event) {
         String message = "FIRE_DETECTED," + event.getTime() + "," + event.getZoneID() + "," + event.getSeverity();
         byte[] bytes = message.getBytes();
@@ -84,6 +88,9 @@ public class FireIncidentSubsystem implements Runnable {
         System.out.println("[New Fire Incident] message sent: " + message);
     }
 
+    /**
+     * Sends the final message to the scheduler to indicate all events from CSV file have been submitted
+     */
     private void sendOnly() {
         byte[] bytes = "ALL_EVENTS_DONE".getBytes();
 
@@ -110,6 +117,10 @@ public class FireIncidentSubsystem implements Runnable {
 
     }
 
+    /**
+     * Starts the FireIncidentSubsystem as a separate process
+     * @param args command line arguments
+     */
     public static void main(String[] args) {
         String csvFilePath = "event_file.csv";
         Thread fireincidentsubsystem = new Thread(new FireIncidentSubsystem(csvFilePath));
