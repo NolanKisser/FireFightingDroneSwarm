@@ -641,7 +641,7 @@ public class Scheduler implements Runnable {
         return incompleteEvents.size();
     }
 
-    public void notifyDroneTransition(DroneSubsystem.DroneState state) {
+    public void notifyDroneTransition(Drone.DroneState state) {
         if (monitor != null) {
             monitor.setActiveFires(getActiveFireCount());
         }
