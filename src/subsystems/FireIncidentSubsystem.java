@@ -53,14 +53,24 @@ public class FireIncidentSubsystem implements Runnable {
             while((line = br.readLine()) != null) {
                 String[] row = line.split(",");
 
-                Thread.sleep((int)(Math.random() * 5000));
+                Thread.sleep((int) (Math.random() * 5000));
 
                 String time = row[0].trim();
                 int zoneID = Integer.parseInt(row[1].trim());
                 FireEvent.Type type = FireEvent.Type.valueOf(row[2].trim());
                 FireEvent.Severity severity = FireEvent.Severity.valueOf(row[3].trim());
 
-                FireEvent event = new FireEvent(time, zoneID, type, severity);
+                // Read optional fault type
+                FireEvent.FaultType faultType = FireEvent.FaultType.NONE;
+                if (row.length > 4) {
+                    try {
+                        faultType = FireEvent.FaultType.valueOf(row[4].trim());
+                    } catch (IllegalArgumentException e) {
+                    }
+                }
+
+                FireEvent event = new FireEvent(time, zoneID, type, severity, faultType);
+
                 sendFireEvent(event);
             }
         } catch (Exception e) {
@@ -74,9 +84,7 @@ public class FireIncidentSubsystem implements Runnable {
      * @param event the fire event to send
      */
     private void sendFireEvent(FireEvent event) {
-        String message = "FIRE_DETECTED," + event.getTime() + "," + event.getZoneID() + "," + event.getSeverity();
-        byte[] bytes = message.getBytes();
-
+        String message = "FIRE_DETECTED," + event.getTime() + "," + event.getZoneID() + "," + event.getSeverity() + "," + event.getFaultType();        byte[] bytes = message.getBytes();
         try {
             sendPacket = new DatagramPacket(bytes, bytes.length, InetAddress.getByName(SCHEDULER_HOST), SCHEDULER_PORT);
             sendReceiveSocket.send(sendPacket);

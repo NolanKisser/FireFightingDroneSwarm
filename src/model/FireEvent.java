@@ -26,10 +26,13 @@ public class FireEvent {
         High
     }
 
+    public enum FaultType { NONE, NOZZLE_JAMMED, STUCK_IN_FLIGHT, COMMUNICATION_LOST }
+
     private final String time;
     private final int zoneID;
     private final Type type;
     private final Severity severity;
+    private final FaultType faultType;
 
     /**
      * Constructor for FireEvent parsed from CSV file
@@ -38,11 +41,12 @@ public class FireEvent {
      * @param type the event type
      * @param severity the severity of the event
      */
-    public FireEvent(String time, int zoneID, Type type, Severity severity) {
+    public FireEvent(String time, int zoneID, Type type, Severity severity, FaultType faultType) {
         this.time = time;
         this.zoneID = zoneID;
         this.type = type;
         this.severity = severity;
+        this.faultType = faultType;
     }
 
     /**
@@ -73,12 +77,14 @@ public class FireEvent {
         return severity;
     }
 
+    public FaultType getFaultType() { return faultType; }
+
     /**
      * Represents the String for the fire event
      * @return formatted string of the event contents
      */
     @Override
     public String toString() {
-        return "Fire Event {" + time + ", " + zoneID + ", " + type + ", " + severity + "}";
+        return "Fire Event {" + time + ", " + zoneID + ", " + type + ", " + severity + ", " + faultType + "}";
     }
 }

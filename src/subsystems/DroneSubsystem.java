@@ -1,40 +1,31 @@
 package subsystems;
 
 import model.*;
-
 import java.io.IOException;
 import java.net.*;
+import java.time.LocalTime;
 
 /**
- * DroneSubsystem class represents a single firefighter drone process.
- * It communicates with the Scheduler through UDP and delegates drone-specific
- * state/data behavior to the Drone class.
- *
- * @author Jordan Grewal, Nolan Kisser, Celina Yang
- * @version March 23, 2026
+ * DroneSubsystem class handles the network communication and thread execution
+ * for a specific Drone object.
  */
 public class DroneSubsystem implements Runnable {
 
     private final Scheduler scheduler;
-    private final Drone drone;
-
-    private DatagramPacket sendPacket, receivePacket;
-    private DatagramSocket sendReceiveSocket;
-
-    private static final int SCHEDULER_PORT = 6000;
-    private static final String SCHEDULER_HOST = "localhost";
-    private static final long REFILL_TIME_MS = 1500;
+    private final Drone drone; // Uses our new data model!
 
     private boolean running = true;
 
-    /**
-     * Constructs a new drone subsystem
-     * @param scheduler the scheduler coordinating the simulation
-     * @param droneID the unique ID of this drone
-     */
+    // Networking
+    private DatagramPacket sendPacket, receivePacket;
+    private DatagramSocket sendReceiveSocket;
+    private final int SCHEDULER_PORT = 6000;
+    private final String SCHEDULER_HOST = "localhost";
+
+
     public DroneSubsystem(Scheduler scheduler, int droneID) {
         this.scheduler = scheduler;
-        this.drone = new Drone(droneID, scheduler);
+        this.drone = new Drone(droneID);
 
         try {
             sendReceiveSocket = new DatagramSocket();
@@ -44,10 +35,6 @@ public class DroneSubsystem implements Runnable {
         }
     }
 
-    /**
-     * Starts a drone subsystem thread as an individual process
-     * @param args command line arguments
-     */
     public static void main(String[] args) {
         int id = 1;
         if (args.length > 0) {
@@ -59,166 +46,193 @@ public class DroneSubsystem implements Runnable {
         }
 
         Scheduler scheduler = new Scheduler("zone_file.csv");
-        DroneSubsystem droneSubsystem = new DroneSubsystem(scheduler, id);
-        Thread droneThread = new Thread(droneSubsystem);
+        DroneSubsystem subsystem = new DroneSubsystem(scheduler, id);
+        Thread droneThread = new Thread(subsystem);
         droneThread.start();
     }
 
-    /**
-     * Sends a message to the scheduler and waits for the reply
-     * @param message the message to send
-     * @return the scheduler's reply message
-     */
+    private String ts() { return LocalTime.now().toString(); }
+
     private String sendAndReceive(String message) {
         sendOnly(message);
         return receiveOnly();
     }
 
-    /**
-     * Send a UDP message to the scheduler
-     * @param message the message to send
-     */
     private void sendOnly(String message) {
         byte[] bytes = message.getBytes();
-
         try {
             sendPacket = new DatagramPacket(bytes, bytes.length, InetAddress.getByName(SCHEDULER_HOST), SCHEDULER_PORT);
             sendReceiveSocket.send(sendPacket);
         } catch (IOException e) {
             e.printStackTrace();
         }
-
-        System.out.println("[Drone " + drone.getDroneID() + "] sent message to scheduler");
-        System.out.println("[Drone " + drone.getDroneID() + "] message sent: " + message);
     }
 
-    /**
-     * Receives a UDP reply from the scheduler
-     * @return the received message as a string
-     */
     private String receiveOnly() {
         receivePacket = new DatagramPacket(new byte[1024], 1024);
-
         try {
             sendReceiveSocket.receive(receivePacket);
         } catch (IOException e) {
             e.printStackTrace();
         }
-
-        String message = new String(receivePacket.getData(), 0, receivePacket.getLength());
-
-        System.out.println("[Drone " + drone.getDroneID() + "] received message from scheduler");
-        System.out.println("[Drone " + drone.getDroneID() + "] message received: " + message);
-        return message;
+        return new String(receivePacket.getData(), 0, receivePacket.getLength()).trim();
     }
 
-    /**
-     * Sends the drone's current status to the scheduler
-     */
-    private void sendStatusUpdate() {
-        sendOnly("STATUS_UPDATE," + drone.getDroneID() + "," + drone.getDroneState() + "," + drone.getCurrentX() + "," + drone.getCurrentY() + "," + drone.getCurrentAgent());
+    private void moveToTargetStepByStep(double targetX, double targetY, double speed, boolean willGetStuck, boolean willLoseComms) throws InterruptedException {
+        double stepDistance = 100.0;
+        int stepsTaken = 0;
+
+        while (drone.getX() != targetX || drone.getY() != targetY) {
+
+            // SIMULATE MID-FLIGHT FAILURE: Freeze after 2 steps
+            if (willGetStuck && stepsTaken == 2) {
+                System.err.printf("[%s] [Drone %d] FAULT: Stuck mid-flight at (%.1f, %.1f)! Commencing radio silence.\n",
+                        ts(), drone.getId(), drone.getX(), drone.getY());
+                drone.setState(Drone.DroneState.FAULTED);
+                return; // Abort movement entirely
+            }
+
+            if (willLoseComms && stepsTaken == 5) {
+                System.err.printf("[%s] [Drone %d] HARD FAULT: Communication Lost! Shutting down drone operations.\n", ts(), drone.getId());
+                sendOnly("HARD_FAULT," + drone.getId() + ",COMMUNICATION_LOST");
+                drone.setState(Drone.DroneState.FAULTED);
+                return; // Abort movement entirely
+            }
+
+            double diffX = targetX - drone.getX();
+            double diffY = targetY - drone.getY();
+
+            if (Math.abs(diffX) > 0) {
+                double step = Math.min(stepDistance, Math.abs(diffX));
+                drone.setLocation(drone.getX() + (Math.signum(diffX) * step), drone.getY());
+                Thread.sleep((long) ((step / speed) * 10));
+            } else if (Math.abs(diffY) > 0) {
+                double step = Math.min(stepDistance, Math.abs(diffY));
+                drone.setLocation(drone.getX(), drone.getY() + (Math.signum(diffY) * step));
+                Thread.sleep((long) ((step / speed) * 10));
+            }
+
+            sendOnly("STATUS_UPDATE," + drone.getId() + "," + drone.getState() + "," +
+                    drone.getX() + "," + drone.getY() + "," + drone.getAgentLevel());
+
+            stepsTaken++;
+        }
     }
 
-    /**
-     * Handles the drone's behaviour based on its current state
-     * @throws InterruptedException if the thread is interrupted during simulation
-     */
     private synchronized void handleEvent() throws InterruptedException {
-        switch (drone.getDroneState()) {
-
+        switch (drone.getState()) {
             case IDLE:
-                String message = sendAndReceive("DRONE_READY," + drone.getDroneID());
+                String message = sendAndReceive("DRONE_READY," + drone.getId());
                 String[] parts = message.split(",");
 
-                if (parts[0].equals("ASSIGN_EVENT")) {
-                    System.out.println("RECEIVE ASSIGN");
+                if (parts[0].trim().equals("ASSIGN_EVENT")) {
+                    String time = parts[1].trim();
+                    int zoneID = Integer.parseInt(parts[2].trim());
+                    FireEvent.Severity severity = FireEvent.Severity.valueOf(parts[3].trim());
+                    FireEvent.FaultType faultType = parts.length > 4 ? FireEvent.FaultType.valueOf(parts[4].trim()) : FireEvent.FaultType.NONE;
 
-                    String time = parts[1];
-                    int zoneID = Integer.parseInt(parts[2]);
-                    FireEvent.Severity severity = FireEvent.Severity.valueOf(parts[3]);
+                    FireEvent event = new FireEvent(time, zoneID, FireEvent.Type.FIRE_DETECTED, severity, faultType);
+                    drone.setCurrentMission(event);
 
-                    FireEvent event = new FireEvent(time, zoneID, FireEvent.Type.FIRE_DETECTED, severity);
-                    drone.setEvent(event);
+                    System.out.printf("[%s] [Drone %d] Dispatched to Zone %d\n", ts(), drone.getId(), zoneID);
 
-                    if (!drone.hasEnoughAgentFor(event)) {
-                        System.out.printf("[Drone %d] Insufficient agent (%.1f%%). Must refill before accepting mission.\n", drone.getDroneID(), drone.getCurrentAgent());
-                        drone.clearEvent();
-                        drone.transitionTo(Drone.DroneState.RETURNING);
+                    if (drone.getAgentLevel() < Drone.LOW_VOLUME) {
+                        System.out.printf("[%s] [Drone %d] Insufficient agent. Must refill.\n", ts(), drone.getId());
+                        drone.setCurrentMission(null);
+                        drone.setState(Drone.DroneState.RETURNING);
                     } else {
-                        drone.transitionTo(Drone.DroneState.EN_ROUTE);
+                        drone.setState(Drone.DroneState.EN_ROUTE);
                     }
-
-                } else if (parts[0].equals("ALL_EVENTS_COMPLETE")) {
-                    System.out.println("ALL EVENTS COMPLETE");
+                } else if(parts[0].equals("ALL_EVENTS_COMPLETE")) {
                     running = false;
                 }
                 break;
 
             case EN_ROUTE:
-                FireEvent enRouteEvent = drone.getEvent();
-                double travelTime = drone.getEnRoute(enRouteEvent);
-                System.out.printf("[Drone %d] En route to Zone %d. Expected travel time: %.1f seconds\n", drone.getDroneID(), enRouteEvent.getZoneID(), travelTime);
-                Zone target = scheduler.getZones().get(enRouteEvent.getZoneID());
-                drone.moveToTargetStepByStep(target.getCenterX(), target.getCenterY(), drone.getCruiseSpeedLoaded(), this::sendStatusUpdate);
-                sendOnly("DRONE_ARRIVE_TO_ZONE," + drone.getDroneID() + "," + enRouteEvent.getTime() + "," + enRouteEvent.getZoneID() + "," + enRouteEvent.getSeverity());
-                drone.transitionTo(Drone.DroneState.EXTINGUISHING);
+                FireEvent currentEvent = drone.getCurrentMission();
+                Zone target = scheduler.getZones().get(currentEvent.getZoneID());
+                double travelTime = drone.computeTravelTime(target.getCenterX(), target.getCenterY(), true);
+
+                System.out.printf("[%s] [Drone %d] En route to Zone %d. Travel time: %.1fs\n",
+                        ts(), drone.getId(), currentEvent.getZoneID(), travelTime);
+
+                // Pass the fault check into the movement method
+                boolean willGetStuck = (currentEvent.getFaultType() == FireEvent.FaultType.STUCK_IN_FLIGHT);
+                boolean willLoseComms = (currentEvent.getFaultType() == FireEvent.FaultType.COMMUNICATION_LOST);
+                moveToTargetStepByStep(target.getCenterX(), target.getCenterY(), Drone.CRUISE_SPEED_LOADED, willGetStuck, willLoseComms);
+
+                // Check if the drone died during transit. If so, abort the rest of EN_ROUTE
+                if (drone.getState() == Drone.DroneState.FAULTED) {
+                    return;
+                }
+
+                sendOnly("DRONE_ARRIVE_TO_ZONE," + drone.getId() + "," + currentEvent.getTime() + "," +
+                        currentEvent.getZoneID() + "," + currentEvent.getSeverity());
+                drone.setState(Drone.DroneState.EXTINGUISHING);
                 break;
 
             case EXTINGUISHING:
-                FireEvent extinguishEvent = drone.getEvent();
-
-                double requiredVolume = drone.getRequiredVolume(extinguishEvent);
-                double volumeToDrop = Math.min(requiredVolume, drone.getCurrentAgent());
-                double dropTime = volumeToDrop / drone.getDropRate();
-
-                System.out.printf("[Drone %d] Opening nozzle doors... (%.1fs)\n", drone.getDroneID(), drone.getNozzleDoorsTime());
-                Thread.sleep((long) (drone.getNozzleDoorsTime() * 10));
-
-                System.out.printf("[Drone %d] Dropping %.1f%% agent on Zone %d... (%.1fs)\n", drone.getDroneID(), volumeToDrop, extinguishEvent.getZoneID(), dropTime);
-                Thread.sleep((long) (dropTime * 10));
-
-                drone.useAgent(volumeToDrop);
-                sendStatusUpdate();
-
-                System.out.printf("[Drone %d] Closing nozzle doors... (%.1fs)\n", drone.getDroneID(), drone.getNozzleDoorsTime());
-                Thread.sleep((long) (drone.getNozzleDoorsTime() * 10));
-
-                if (volumeToDrop >= requiredVolume) {
-                    System.out.printf("[Drone %d] Successfully extinguished fire in Zone %d!\n", drone.getDroneID(), extinguishEvent.getZoneID());
-                    sendOnly("DRONE_COMPLETE_EVENT," + drone.getDroneID() + "," + extinguishEvent.getTime() + "," + extinguishEvent.getZoneID() + "," + extinguishEvent.getSeverity());
-                } else {
-                    System.out.printf("[Drone %d] Ran out of agent! Fire in Zone %d not fully extinguished.\n", drone.getDroneID(), extinguishEvent.getZoneID());
-                    sendOnly("REQUEUE_EVENT," + drone.getDroneID() + "," + extinguishEvent.getTime() + "," + extinguishEvent.getZoneID() + "," + extinguishEvent.getSeverity());
+                FireEvent ev = drone.getCurrentMission();
+                if (ev.getFaultType() == FireEvent.FaultType.NOZZLE_JAMMED) {
+                    System.err.printf("[%s] [Drone %d] HARD FAULT: Nozzle doors jammed! Shutting down.\n", ts(), drone.getId());
+                    sendOnly("HARD_FAULT," + drone.getId() + ",NOZZLE_JAMMED");
+                    drone.setState(Drone.DroneState.FAULTED);
+                    return;
                 }
 
-                drone.transitionTo(Drone.DroneState.RETURNING);
-                drone.clearEvent();
+                double requiredVolume = drone.getRequiredVolume(ev);
+                double volumeToDrop = Math.min(requiredVolume, drone.getAgentLevel());
+                double dropTime = volumeToDrop / Drone.DROP_RATE;
+
+                System.out.printf("[%s] [Drone %d] Opening nozzle doors... (%.1fs)\n", ts(), drone.getId(), Drone.NOZZLE_DOORS);
+                Thread.sleep((long) (Drone.NOZZLE_DOORS * 10));
+
+                System.out.printf("[%s] [Drone %d] Dropping %.1f%% agent on Zone %d... (%.1fs)\n",
+                        ts(), drone.getId(), volumeToDrop, ev.getZoneID(), dropTime);
+                Thread.sleep((long) (dropTime * 10));
+
+                drone.consumeAgent(volumeToDrop);
+                sendOnly("STATUS_UPDATE," + drone.getId() + "," + drone.getState() + "," +
+                        drone.getX() + "," + drone.getY() + "," + drone.getAgentLevel());
+
+                System.out.printf("[%s] [Drone %d] Closing nozzle doors... (%.1fs)\n", ts(), drone.getId(), Drone.NOZZLE_DOORS);
+                Thread.sleep((long) (Drone.NOZZLE_DOORS * 10));
+
+                if (volumeToDrop >= requiredVolume) {
+                    System.out.printf("[%s] [Drone %d] Successfully extinguished fire in Zone %d!\n", ts(), drone.getId(), ev.getZoneID());
+                    sendOnly("DRONE_COMPLETE_EVENT," + drone.getId() + "," + ev.getTime() + "," + ev.getZoneID() + "," + ev.getSeverity());
+                } else {
+                    System.out.printf("[%s] [Drone %d] Ran out of agent! Fire in Zone %d not fully extinguished.\n", ts(), drone.getId(), ev.getZoneID());
+                    sendOnly("REQUEUE_EVENT," + drone.getId() + "," + ev.getTime() + "," + ev.getZoneID() + "," + ev.getSeverity());
+                }
+
+                drone.setState(Drone.DroneState.RETURNING);
+                drone.setCurrentMission(null);
                 break;
 
             case RETURNING:
-                double returnTime = drone.getReturn();
+                double returnTime = drone.computeTravelTime(0, 0, false);
+                System.out.printf("[%s] [Drone %d] Returning to base. Expected return time: %.1f seconds\n", ts(), drone.getId(), returnTime);
 
-                System.out.printf("[Drone %d] Returning to base. Expected return time: %.1f seconds\n", drone.getDroneID(), returnTime);
-
-                drone.moveToTargetStepByStep(0.0, 0.0, drone.getCruiseSpeedUnloaded(),this::sendStatusUpdate);
-
-                drone.transitionTo(Drone.DroneState.REFILLING);
+                moveToTargetStepByStep(0, 0, Drone.CRUISE_SPEED_UNLOADED, false, false);
+                drone.setState(Drone.DroneState.REFILLING);
                 break;
 
             case REFILLING:
-                System.out.printf("[Drone %d] Refilling agent at base...\n", drone.getDroneID());
-                Thread.sleep(REFILL_TIME_MS);
+                System.out.printf("[%s] [Drone %d] Refilling agent at base...\n", ts(), drone.getId());
+                Thread.sleep(1500);
 
-                drone.refillAgent();
-                sendStatusUpdate();
+                drone.setAgentLevel(100.0);
+                sendOnly("STATUS_UPDATE," + drone.getId() + "," + drone.getState() + "," +
+                        drone.getX() + "," + drone.getY() + "," + drone.getAgentLevel());
 
-                String reply = sendAndReceive("DRONE_RETURN_TO_BASE," + drone.getDroneID());
+                String reply = sendAndReceive("DRONE_RETURN_TO_BASE," + drone.getId());
 
                 if (reply.startsWith("ALL_EVENTS_COMPLETE")) {
-                    System.out.println("[Drone " + drone.getDroneID() + "] All events complete. Shutting down.");
+                    System.out.printf("[%s] [Drone %d] All events complete. Shutting down.\n", ts(), drone.getId());
                     running = false;
                 } else {
-                    drone.transitionTo(Drone.DroneState.IDLE);
+                    drone.setState(Drone.DroneState.IDLE);
                 }
                 break;
 
@@ -228,15 +242,11 @@ public class DroneSubsystem implements Runnable {
         }
     }
 
-    /**
-     * The drone blocks until there is an event available. When the scheduler indicates there are
-     * no more events, the drone will complete execution.
-     */
+
     @Override
     public void run() {
-        sendAndReceive("REGISTER_DRONE," + drone.getDroneID());
-
-        while (running) {
+        sendAndReceive("REGISTER_DRONE," + drone.getId());
+        while(running) {
             try {
                 handleEvent();
             } catch (Exception e) {

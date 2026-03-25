@@ -38,7 +38,7 @@ public class Scheduler implements Runnable {
     public enum FaultType {
         NONE,
         COMMUNICATION_LOST,
-        NOZZLE_FAILURE,
+        NOZZLE_JAMMED,
         STUCK_IN_FLIGHT
     }
 
@@ -52,6 +52,7 @@ public class Scheduler implements Runnable {
         public double agentRemaining;
         public FaultType currentFault;
         public FireEvent currentMission;
+        public long expectedArrivalTime = 0; // Timer threshold for STUCK_IN_FLIGHT detection
 
         public InetAddress address;
         public int port;
@@ -147,6 +148,24 @@ public class Scheduler implements Runnable {
                 monitor.addLog("Scheduler", "UDP Server listening on port " + schedulerPort);
             }
             System.out.println("UDP Server listening on port " +  schedulerPort);
+
+            new Thread(() -> {
+                while(udpRunning) {
+                    long now = System.currentTimeMillis();
+                    synchronized(this) {
+                        for (DroneStatus status : droneStatuses.values()) {
+                            if (status.currentMission != null && status.expectedArrivalTime > 0 && now > status.expectedArrivalTime) {
+                                System.err.println("[" + java.time.LocalTime.now() + "] [Scheduler] TIMER EXPIRED! Drone " + status.droneID + " hasn't arrived. Assuming STUCK_IN_FLIGHT.");
+                                reportFault(status.droneID, FaultType.STUCK_IN_FLIGHT);
+                                status.expectedArrivalTime = 0; // stop timer
+                                if (monitor != null) monitor.updateDroneStatus(status.droneID, "FAULT: STUCK", "N/A", "N/A", status.agentRemaining, status.currentX, status.currentY);
+                            }
+                        }
+                    }
+                    try { Thread.sleep(1000); } catch (InterruptedException e) {}
+                }
+            }).start();
+
             while(udpRunning) {
                 byte[] buffer = new byte[1024];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
@@ -182,35 +201,37 @@ public class Scheduler implements Runnable {
     private synchronized void handleUDPMessage(String message, InetAddress address, int port) {
         try {
             String[] messageParts = message.split(",");
-            switch (messageParts[0]) {
+            switch (messageParts[0].trim()) {
                 case "REGISTER_DRONE":
-                    // REGISTER_DRONE,droneID,address,port
-                    int droneID = Integer.parseInt(messageParts[1]);
+                    int droneID = Integer.parseInt(messageParts[1].trim());
                     registerDrone(droneID, address, port);
                     sendUDPMessage("REGISTERED_DRONE," + droneID, address, port);
                     break;
                 case "FIRE_DETECTED":
-                    // FIRE_DETECTED,time,zoneID,severity
-                    String fireTime =  messageParts[1];
-                    int fireZoneID = Integer.parseInt(messageParts[2]);
-                    FireEvent.Severity fireSeverity = FireEvent.Severity.valueOf(messageParts[3]);
+                    try {
+                        String fireTime =  messageParts[1].trim();
+                        int fireZoneID = Integer.parseInt(messageParts[2].trim());
+                        FireEvent.Severity fireSeverity = FireEvent.Severity.valueOf(messageParts[3].trim());
+                        FireEvent.FaultType fault = messageParts.length > 4 ? FireEvent.FaultType.valueOf(messageParts[4].trim()) : FireEvent.FaultType.NONE;
 
-                    FireEvent newEvent = new FireEvent(fireTime, fireZoneID, FireEvent.Type.FIRE_DETECTED, fireSeverity);
-                    newFireEvent(newEvent);
+                        FireEvent newEvent = new FireEvent(fireTime, fireZoneID, FireEvent.Type.FIRE_DETECTED, fireSeverity, fault);
+                        newFireEvent(newEvent);
+                    } catch (Exception e) {
+                        System.err.println("[" + java.time.LocalTime.now() + "] [Scheduler] Packet Error: Dropped corrupted or malformed message.");
+                        e.printStackTrace(); // Show us exactly why it failed!
+                    }
                     break;
                 case "ALL_EVENTS_DONE":
-                    // ALL_EVENTS_DONE
                     System.out.println("[Scheduler] All events done");
                     updateAllEventsDone();
                     System.out.println("[Scheduler] FireIncidentSubsystem reported all events done");
                     break;
                 case "STATUS_UPDATE":
-                    // STATUS_UPDATE,droneId,state,x,y,agent
-                    int statusDroneID = Integer.parseInt(messageParts[1]);
-                    String statusDroneState =  messageParts[2];
-                    double statusX = Double.parseDouble(messageParts[3]);
-                    double statusY = Double.parseDouble(messageParts[4]);
-                    double statusAgent = Double.parseDouble(messageParts[5]);
+                    int statusDroneID = Integer.parseInt(messageParts[1].trim());
+                    String statusDroneState =  messageParts[2].trim();
+                    double statusX = Double.parseDouble(messageParts[3].trim());
+                    double statusY = Double.parseDouble(messageParts[4].trim());
+                    double statusAgent = Double.parseDouble(messageParts[5].trim());
 
                     updateDroneStatus(statusDroneID, statusX, statusY, statusAgent);
                     DroneStatus statusPtr = droneStatuses.get(statusDroneID);
@@ -224,25 +245,23 @@ public class Scheduler implements Runnable {
                     }
                     break;
                 case "DRONE_ARRIVE_TO_ZONE":
-                    // DRONE_ARRIVED,droneID,time,zoneID,severity
-                    droneID = Integer.parseInt(messageParts[1]);
+                    droneID = Integer.parseInt(messageParts[1].trim());
 
-                    String arriveTime = messageParts[2];
-                    int arriveZoneID = Integer.parseInt(messageParts[3]);
-                    FireEvent.Severity arriveSeverity = FireEvent.Severity.valueOf(messageParts[4]);
+                    if (droneStatuses.containsKey(droneID)) {
+                        droneStatuses.get(droneID).expectedArrivalTime = 0;
+                    }
+
+                    String arriveTime = messageParts[2].trim();
+                    int arriveZoneID = Integer.parseInt(messageParts[3].trim());
+                    FireEvent.Severity arriveSeverity = FireEvent.Severity.valueOf(messageParts[4].trim());
 
                     FireEvent arrivedEvent = new FireEvent(
-                            arriveTime,
-                            arriveZoneID,
-                            FireEvent.Type.FIRE_DETECTED,
-                            arriveSeverity
+                            arriveTime, arriveZoneID, FireEvent.Type.FIRE_DETECTED, arriveSeverity, FireEvent.FaultType.NONE
                     );
-
                     droneArrivedAtZone(droneID, arrivedEvent);
                     break;
                 case "DRONE_RETURN_TO_BASE":
-                    // DRONE_RETURN_TO_BASE,droneID
-                    droneID = Integer.parseInt(messageParts[1]);
+                    droneID = Integer.parseInt(messageParts[1].trim());
                     boolean finished = droneReturnToBase(droneID);
 
                     if (finished) {
@@ -252,68 +271,74 @@ public class Scheduler implements Runnable {
                     }
                     break;
                 case "DRONE_READY":
-                    // DRONE_READY,droneID
-                    droneID = Integer.parseInt(messageParts[1]);
-
-                    System.out.println("DRONE READY ---------> " + allEventsDone );
-
+                    droneID = Integer.parseInt(messageParts[1].trim());
                     DroneStatus readyStatus = droneStatuses.get(droneID);
                     if (readyStatus != null) {
                         readyStatus.address = address;
                         readyStatus.port = port;
                     }
 
-                    // FIX: Check if there are events in the queue FIRST
                     if (!incompleteEvents.isEmpty()) {
                         FireEvent event = incompleteEvents.poll();
                         if (readyStatus != null) {
                             readyStatus.currentMission = event;
                             readyStatus.waitingForEvent = false;
+
+                            Zone z = zones.get(event.getZoneID());
+                            double distance = Math.sqrt(Math.pow(z.getCenterX() - readyStatus.currentX, 2) + Math.pow(z.getCenterY() - readyStatus.currentY, 2));
+                            long expectedTravelMillis = (long) ((distance / 10.0) * 10);
+
+                            readyStatus.expectedArrivalTime = System.currentTimeMillis() + expectedTravelMillis + 3000;
                         }
                         activeDroneCount++;
 
-                        String newMessage = "ASSIGN_EVENT," +
-                                event.getTime() + "," +
-                                event.getZoneID() + "," +
-                                event.getSeverity();
-
+                        String newMessage = "ASSIGN_EVENT," + event.getTime() + "," + event.getZoneID() + "," + event.getSeverity() + "," + event.getFaultType();
                         sendUDPMessage(newMessage, address, port);
                         System.out.println("[Scheduler] Assigned event to drone " + droneID);
-                        notifyAll(); // Wake up the scheduler state machine thread
-
+                        notifyAll();
                     } else if (!allEventsDone) {
-                        // Queue is empty, but producer is still working
-                        if (readyStatus != null) {
-                            readyStatus.waitingForEvent = true;
-                        }
-                        System.out.println("[Scheduler] Drone " + droneID + " is waiting for an event.");
-
+                        if (readyStatus != null) readyStatus.waitingForEvent = true;
                     } else {
-                        // Queue is empty AND producer is done
                         sendUDPMessage("ALL_EVENTS_COMPLETE,", address, port);
                     }
                     break;
                 case "DRONE_COMPLETE_EVENT":
-                    // DRONE_COMPLETE_EVENT,droneID,time,zoneID,severity
-                    droneID = Integer.parseInt(messageParts[1]);
-
-                    String completeTime = messageParts[2];
-                    int completeZoneID = Integer.parseInt(messageParts[3]);
-                    FireEvent.Severity completeSeverity = FireEvent.Severity.valueOf(messageParts[4]);
+                    droneID = Integer.parseInt(messageParts[1].trim());
+                    String completeTime = messageParts[2].trim();
+                    int completeZoneID = Integer.parseInt(messageParts[3].trim());
+                    FireEvent.Severity completeSeverity = FireEvent.Severity.valueOf(messageParts[4].trim());
 
                     FireEvent completedEvent = new FireEvent(
-                            completeTime,
-                            completeZoneID,
-                            FireEvent.Type.FIRE_DETECTED,
-                            completeSeverity
+                            completeTime, completeZoneID, FireEvent.Type.FIRE_DETECTED, completeSeverity, FireEvent.FaultType.NONE
                     );
-
                     completeFireEvent(completedEvent);
                     break;
-                case "REQUEUE_EVENT":
-                    // REQUEUE_EVENT,droneID,time,zoneID,severity
+                case "HARD_FAULT":
+                    droneID = Integer.parseInt(messageParts[1].trim());
+                    FaultType fType = FaultType.valueOf(messageParts[2].trim());
+                    reportFault(droneID, fType);
                     break;
+                case "REQUEUE_EVENT":
+                    droneID = Integer.parseInt(messageParts[1].trim());
+                    String requeueTime = messageParts[2].trim();
+                    int requeueZoneID = Integer.parseInt(messageParts[3].trim());
+                    FireEvent.Severity requeueSeverity = FireEvent.Severity.valueOf(messageParts[4].trim());
 
+                    System.out.println("[Scheduler] Drone " + droneID + " ran out of agent. Re-queuing Zone " + requeueZoneID);
+
+                    // Create a clean event strictly enforcing FaultType.NONE
+                    FireEvent requeuedEvent = new FireEvent(
+                            requeueTime,
+                            requeueZoneID,
+                            FireEvent.Type.FIRE_DETECTED,
+                            requeueSeverity,
+                            FireEvent.FaultType.NONE
+                    );
+
+                    incompleteEvents.add(requeuedEvent);
+                    notifyAll();
+                    assignPendingEvents(); // Instantly hand off to an idle drone
+                    break;
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -339,6 +364,41 @@ public class Scheduler implements Runnable {
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Helper method to assign any pending events in the queue to drones
+     * that are currently stuck waiting for an assignment.
+     */
+    private synchronized void assignPendingEvents() {
+        for (DroneStatus status : droneStatuses.values()) {
+            if (status.waitingForEvent && status.currentMission == null && status.address != null) {
+
+                FireEvent event = incompleteEvents.poll();
+                if (event == null) {
+                    break; // No more events in the queue
+                }
+
+                status.currentMission = event;
+                status.waitingForEvent = false;
+                activeDroneCount++;
+
+                // Set the timeout timer for this newly assigned drone
+                Zone z = zones.get(event.getZoneID());
+                double distance = Math.sqrt(Math.pow(z.getCenterX() - status.currentX, 2) + Math.pow(z.getCenterY() - status.currentY, 2));
+                long expectedTravelMillis = (long) ((distance / 10.0) * 10);
+                status.expectedArrivalTime = System.currentTimeMillis() + expectedTravelMillis + 3000;
+
+                String message = "ASSIGN_EVENT," +
+                        event.getTime() + "," +
+                        event.getZoneID() + "," +
+                        event.getSeverity() + "," +
+                        event.getFaultType();
+
+                sendUDPMessage(message, status.address, status.port);
+                System.out.println("[Scheduler] Assigned RE-QUEUED event to waiting drone " + status.droneID);
+            }
         }
     }
 
@@ -443,30 +503,7 @@ public class Scheduler implements Runnable {
         incompleteEvents.add(fireEvent);
         updateMonitorCounts();
         notifyAll();
-
-        for (DroneStatus status : droneStatuses.values()) {
-            if (status.waitingForEvent && status.currentMission == null
-                    && status.address != null) {
-
-                FireEvent event = incompleteEvents.poll();
-                if (event == null) {
-                    return;
-                }
-
-                status.currentMission = event;
-                status.waitingForEvent = false;
-                activeDroneCount++;
-
-                String message = "ASSIGN_EVENT," +
-                        event.getTime() + "," +
-                        event.getZoneID() + "," +
-                        event.getSeverity();
-
-                sendUDPMessage(message, status.address, status.port);
-                System.out.println("[Scheduler] Assigned queued event to waiting drone " + status.droneID);
-                break;
-            }
-        }
+        assignPendingEvents();
     }
 
     /**
@@ -519,13 +556,26 @@ public class Scheduler implements Runnable {
             status.currentFault = fault;
             System.err.println("[Scheduler] FAULT DETECTED for Drone " + droneID + ": " + fault);
 
+            if (monitor != null) {
+                monitor.updateDroneStatus(droneID, "FAULT: " + fault, "N/A", "N/A", status.agentRemaining, status.currentX, status.currentY);
+            }
+
             // If the drone was on a mission, requeue the mission so it isn't ignored
             if (status.currentMission != null) {
                 System.out.println("[Scheduler] Re-queuing event from failed Drone " + droneID);
-                incompleteEvents.add(status.currentMission);
+
+                FireEvent cleanEvent = new FireEvent(
+                        status.currentMission.getTime(),
+                        status.currentMission.getZoneID(),
+                        status.currentMission.getType(),
+                        status.currentMission.getSeverity(),
+                        FireEvent.FaultType.NONE
+                );
+                incompleteEvents.add(cleanEvent);
                 status.currentMission = null;
                 activeDroneCount--;
                 notifyAll();
+                assignPendingEvents();
             }
         }
     }
