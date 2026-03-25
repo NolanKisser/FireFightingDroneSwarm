@@ -199,13 +199,14 @@ public class DroneSubsystemTest {
     @DisplayName("Test DroneSubsystem for updating current location when at zone center")
     @Timeout(value = 15, unit = TimeUnit.SECONDS)
     public void testMoveToCenter() {
-        DroneSubsystem drone = new DroneSubsystem(scheduler, 1);
         FireEvent event = new FireEvent("14:00:00", 2, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
 
+
+        Drone drone = new Drone(1, scheduler);
         drone.toZoneCenter(event);
 
-        assertEquals(325.0, drone.getCurrentX());
-        assertEquals(1050.0, drone.getCurrentY());
+        assertEquals(325.0, drone.getX());
+        assertEquals(1050.0, drone.getY());
     }
 
     @Test
@@ -247,11 +248,11 @@ public class DroneSubsystemTest {
         Thread t = new Thread(drone);
         t.start();
 
-        waitUntil(() -> drone.getDroneState() == DroneSubsystem.DroneState.EN_ROUTE, 2000);
-        waitUntil(() -> drone.getDroneState() == DroneSubsystem.DroneState.EXTINGUISHING, 3000);
-        waitUntil(() -> drone.getDroneState() == DroneSubsystem.DroneState.RETURNING, 4000);
-        waitUntil(() -> drone.getDroneState() == DroneSubsystem.DroneState.REFILLING, 5000);
-        waitUntil(() -> drone.getDroneState() == DroneSubsystem.DroneState.IDLE, 8000);
+        waitUntil(() -> drone.getDroneState() == Drone.DroneState.EN_ROUTE, 2000);
+        waitUntil(() -> drone.getDroneState() == Drone.DroneState.EXTINGUISHING, 3000);
+        waitUntil(() -> drone.getDroneState() == Drone.DroneState.RETURNING, 4000);
+        waitUntil(() -> drone.getDroneState() == Drone.DroneState.REFILLING, 5000);
+        waitUntil(() -> drone.getDroneState() == Drone.DroneState.IDLE, 8000);
 
         t.join(8000);
         assertFalse(t.isAlive());
@@ -273,7 +274,7 @@ public class DroneSubsystemTest {
         Thread t = new Thread(drone);
         t.start();
 
-        waitUntil(() -> drone.getDroneState() == DroneSubsystem.DroneState.EN_ROUTE || drone.getDroneState() == DroneSubsystem.DroneState.RETURNING, 2000);
+        waitUntil(() -> drone.getDroneState() == Drone.DroneState.EN_ROUTE || drone.getDroneState() == Drone.DroneState.RETURNING, 2000);
 
         t.join(6000);
     }
@@ -293,7 +294,7 @@ public class DroneSubsystemTest {
         Thread t = new Thread(drone);
         t.start();
 
-        waitUntil(() -> drone.getDroneState() == DroneSubsystem.DroneState.RETURNING, 5000);
+        waitUntil(() -> drone.getDroneState() == Drone.DroneState.RETURNING, 5000);
 
         assertTrue(scheduler.getActiveFireCount() >= 0);
         t.join(6000);

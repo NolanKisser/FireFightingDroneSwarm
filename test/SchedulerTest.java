@@ -107,7 +107,7 @@ public class SchedulerTest {
     @DisplayName("Test adding a new fire event to the scheduler")
     public void testNewFireEvent() {
         FireEvent event = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED,
-                FireEvent.Severity.High);
+                FireEvent.Severity.High, FireEvent.FaultType.NONE);
 
         assertDoesNotThrow(() -> scheduler.newFireEvent(event));
     }
@@ -116,7 +116,7 @@ public class SchedulerTest {
     @DisplayName("Test adding multiple fire events to the scheduler")
     public void testMultipleFireEvents() {
         FireEvent event1 = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED,
-                FireEvent.Severity.High);
+                FireEvent.Severity.High, FireEvent.FaultType.NONE);
         FireEvent event2 = new FireEvent("14:10:00", 2, FireEvent.Type.DRONE_REQUEST,
                 FireEvent.Severity.Moderate);
         FireEvent event3 = new FireEvent("14:15:00", 3, FireEvent.Type.FIRE_DETECTED,
