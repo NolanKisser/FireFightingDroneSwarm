@@ -158,7 +158,7 @@ public class Scheduler implements Runnable {
                                 System.err.println("[" + java.time.LocalTime.now() + "] [Scheduler] TIMER EXPIRED! Drone " + status.droneID + " hasn't arrived. Assuming STUCK_IN_FLIGHT.");
                                 reportFault(status.droneID, FaultType.STUCK_IN_FLIGHT);
                                 status.expectedArrivalTime = 0; // stop timer
-                                if (monitor != null) monitor.updateDroneStatus(status.droneID, "FAULT: STUCK", "N/A", "N/A", status.agentRemaining, status.currentX, status.currentY);
+                                if (monitor != null) monitor.updateDroneStatus(status.droneID, "FAULT: STUCK", "N/A", "N/A", status.agentRemaining, status.currentFault.toString(), status.currentX, status.currentY);
                             }
                         }
                     }
@@ -238,10 +238,14 @@ public class Scheduler implements Runnable {
                     if (monitor != null && statusPtr != null) {
                         String zoneStr = statusPtr.currentMission != null ? String.valueOf(statusPtr.currentMission.getZoneID()) : "N/A";
                         String sevStr = statusPtr.currentMission != null ? statusPtr.currentMission.getSeverity().toString() : "N/A";
-                        monitor.updateDroneStatus(statusDroneID, statusDroneState, zoneStr, sevStr, statusAgent, statusX, statusY);
+                        String faultStr = statusPtr.currentFault != null ? statusPtr.currentFault.toString() : "NONE";
+
+                        monitor.updateDroneStatus(statusDroneID, statusDroneState, zoneStr, sevStr, statusAgent, faultStr, statusX, statusY);
                     }
                     if (monitor != null && statusDroneState.equals("IDLE")) {
-                        monitor.updateDroneStatus(statusDroneID, statusDroneState, "N/A", "N/A", statusAgent, statusX, statusY);
+                        String faultStr = statusPtr != null && statusPtr.currentFault != null ? statusPtr.currentFault.toString() : "NONE";
+
+                        monitor.updateDroneStatus(statusDroneID, statusDroneState, "N/A", "N/A", statusAgent, faultStr, statusX, statusY);
                     }
                     break;
                 case "DRONE_ARRIVE_TO_ZONE":
@@ -557,7 +561,9 @@ public class Scheduler implements Runnable {
             System.err.println("[Scheduler] FAULT DETECTED for Drone " + droneID + ": " + fault);
 
             if (monitor != null) {
-                monitor.updateDroneStatus(droneID, "FAULT: " + fault, "N/A", "N/A", status.agentRemaining, status.currentX, status.currentY);
+                monitor.updateDroneStatus(droneID, "FAULT: " + fault, "N/A", "N/A", status.agentRemaining, fault.toString(), status.currentX, status.currentY);
+                monitor.addFaultLog("Scheduler", droneID, fault.toString(), "Fault detected and drone marked offline");
+                monitor.setDroneOffline(droneID, status.currentMission.getZoneID());
             }
 
             // If the drone was on a mission, requeue the mission so it isn't ignored
@@ -596,6 +602,7 @@ public class Scheduler implements Runnable {
             status.currentMission = null;
             status.agentRemaining = 100.0;
             status.waitingForEvent = false;
+            status.currentFault = FaultType.NONE;
         }
 
         if (activeDroneCount > 0) {

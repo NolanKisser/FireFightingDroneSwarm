@@ -46,6 +46,7 @@ public class ZoneMap extends JPanel {
     private static class DroneRenderInfo {
         double x, y;
         String state;
+        String fault;
     }
     
     private final Map<Integer, DroneRenderInfo> drones = new ConcurrentHashMap<>();
@@ -69,11 +70,12 @@ public class ZoneMap extends JPanel {
         repaint();
     }
 
-    public void updateDrone(int id, double x, double y, String state) {
+    public void updateDrone(int id, double x, double y, String state, String fault) {
         DroneRenderInfo info = drones.computeIfAbsent(id, k -> new DroneRenderInfo());
         info.x = x;
         info.y = y;
         info.state = state;
+        info.fault = fault;
         repaint();
     }
 
@@ -136,11 +138,11 @@ public class ZoneMap extends JPanel {
         g2.setColor(Color.BLACK);
 
         int legendY = legendStartY;
-        int labelTextPad = Math.max(4, (int) (legendCellSize * 0.08));
+        int labelTextPad = Math.max(4, (int) (legendCellSize * 0.07)) - 2;
         int descTextPad = Math.max(6, (int) (legendCellSize * 0.12));
         int descColX = offsetX + (int) ((WORLD_WIDTH - (GRID_SIZE * 6)) * fitScale);
         int descX = descColX + descTextPad;
-        int descTextY = legendY + legendCellSize - labelTextPad;
+        int descTextY = legendY + legendCellSize - labelTextPad - 1;
 
         g2.setColor(new Color(220, 240, 220));
         g2.fillRect(legendStartX, legendY, legendCellSize, legendCellSize);
@@ -151,7 +153,7 @@ public class ZoneMap extends JPanel {
         legendY += legendCellSize;
 
         descTextY = legendY + legendCellSize - labelTextPad;
-        g2.setColor(new Color(220, 40, 40));
+        g2.setColor(new Color(255, 0, 0));
         g2.fillRect(legendStartX, legendY, legendCellSize, legendCellSize);
         g2.setColor(Color.BLACK);
         g2.drawRect(legendStartX, legendY, legendCellSize, legendCellSize);
@@ -164,6 +166,14 @@ public class ZoneMap extends JPanel {
         g2.setColor(Color.BLACK);
         g2.drawRect(legendStartX, legendY, legendCellSize, legendCellSize);
         g2.drawString("Extinguished fire", descX, descTextY);
+        legendY += legendCellSize;
+
+        descTextY = legendY + legendCellSize - labelTextPad;
+        g2.setColor(new Color(0, 0, 255));
+        g2.fillRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.setColor(Color.BLACK);
+        g2.drawRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.drawString("Idle / Refilling", descX, descTextY);
         legendY += legendCellSize;
 
         descTextY = legendY + legendCellSize - labelTextPad;
@@ -189,8 +199,54 @@ public class ZoneMap extends JPanel {
         g2.fillRect(legendStartX, legendY, legendCellSize, legendCellSize);
         g2.setColor(Color.BLACK);
         g2.drawRect(legendStartX, legendY, legendCellSize, legendCellSize);
-        g2.drawString("D(3)", legendStartX + labelTextPad, descTextY);
+        g2.drawString("D(n)", legendStartX + labelTextPad, descTextY);
         g2.drawString("Drone Returning", descX, descTextY);
+        legendY += legendCellSize;
+
+        descTextY = legendY + legendCellSize - labelTextPad;
+        g2.setColor(new Color(170, 171, 164));
+        g2.fillRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.setColor(Color.BLACK);
+        g2.drawRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.drawString("D(n)", legendStartX + labelTextPad, descTextY);
+        g2.drawString("Drone Offline", descX, descTextY);
+        legendY += legendCellSize * 2;
+
+        g2.setFont(g2.getFont().deriveFont(Font.BOLD));
+        g2.drawString("Fault Types", legendStartX, legendY - 5);
+        g2.setFont(g2.getFont().deriveFont(Font.PLAIN));
+
+        descTextY = legendY + legendCellSize - labelTextPad;
+        g2.setColor(new Color(250, 87, 87));
+        g2.fillRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.setColor(Color.BLACK);
+        g2.drawRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.drawString("D(n)", legendStartX + labelTextPad, descTextY);
+        g2.drawString("Drone nozzle jammed", descX, descTextY);
+        legendY += legendCellSize;
+
+        descTextY = legendY + legendCellSize - labelTextPad;
+        g2.setColor(new Color(130, 5, 5));
+        g2.fillRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.setColor(Color.BLACK);
+        g2.drawRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.drawString("D(n)", legendStartX + labelTextPad, descTextY);
+        g2.drawString("Drone stuck in flight", descX, descTextY);
+        legendY += legendCellSize;
+
+        descTextY = legendY + legendCellSize - labelTextPad;
+        g2.setColor(new Color(252, 136, 20));
+        g2.fillRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.setColor(Color.BLACK);
+        g2.drawRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.drawString("D(n)", legendStartX + labelTextPad, descTextY);
+        g2.drawString("Drone communication lost", descX, descTextY);
+
+        int offlineDroneX = legendStartX + 200;
+        int offlineDroneY = legendStartY + 25 + (legendCellSize * 2);
+        g2.setFont(g2.getFont().deriveFont(Font.BOLD));
+        g2.drawString("OFFLINE DRONES", offlineDroneX - 10, offlineDroneY - (legendCellSize) + 15);
+        g2.setFont(g2.getFont().deriveFont(Font.PLAIN));
 
         //Draw Zones from dummy data
         for (Zone z : zones) {
@@ -223,7 +279,7 @@ public class ZoneMap extends JPanel {
             int centerY = offsetY + (int) (z.getCenterY() * fitScale);
 
             if (activeFires.contains(z.getZoneID())) {
-                g2.setColor(new Color(220, 40, 40)); // Red active fire
+                g2.setColor(new Color(255, 0, 0)); // Red active fire
                 // Center the unit block on the logical center coordinate
                 g2.fillRect(centerX - fireUnitSize / 2, centerY - fireUnitSize / 2, fireUnitSize, fireUnitSize);
                 g2.setColor(Color.BLACK);
@@ -245,17 +301,33 @@ public class ZoneMap extends JPanel {
             int droneX = offsetX + (int) (info.x * fitScale);
             int droneY = offsetY + (int) (info.y * fitScale);
             int droneSize = (int) (GRID_SIZE * fitScale); // Render size as 1 strict unit
-            
-            if ("EN_ROUTE".equals(info.state)) {
+
+            if (info.fault != null && !"NONE".equalsIgnoreCase(info.fault)) {
+                if("NOZZLE_JAMMED".equalsIgnoreCase(info.fault)) {
+                    g2.setColor(new Color(250, 87, 87));
+                } else if ("STUCK_IN_FLIGHT".equalsIgnoreCase(info.fault)) {
+                    g2.setColor(new Color(130, 5, 5));
+                } else if ("COMMUNICATION_LOST".equalsIgnoreCase(info.fault)) {
+                    g2.setColor(new Color(252, 136, 20));
+                } else {
+                    g2.setColor(Color.DARK_GRAY);
+                }
+
+            } else if ("EN_ROUTE".equals(info.state)) {
                 g2.setColor(new Color(240, 200, 60)); // Yellow
             } else if ("EXTINGUISHING".equals(info.state)) {
                 g2.setColor(new Color(110, 160, 60)); // Green
             } else if ("RETURNING".equals(info.state)) {
                 g2.setColor(new Color(190, 110, 200)); // Purple
             } else if ("IDLE".equals(info.state) || "REFILLING".equals(info.state)) {
-                g2.setColor(Color.BLUE); // Base / Default
-            } else {
-                g2.setColor(Color.RED); // Faulted or unknown
+                g2.setColor(new Color(0, 0, 255)); // Base / Default
+            } else if ("OFFLINE".equals(info.state)) {
+                offlineDroneY = legendStartY + 25 + (legendCellSize * (2 + id));
+                droneX = offlineDroneX;
+                droneY = offlineDroneY;
+                g2.setColor(new Color(170, 171, 164));
+            }else {
+                g2.setColor(Color.DARK_GRAY); // Faulted or unknown
             }
             
             g2.fillRect(droneX - droneSize/2, droneY - droneSize/2, droneSize, droneSize);

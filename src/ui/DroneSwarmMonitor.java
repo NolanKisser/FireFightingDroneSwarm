@@ -54,7 +54,7 @@ public class DroneSwarmMonitor extends JFrame {
         topPanel.add(controlPanel, BorderLayout.NORTH);
 
         // Drone Status Table
-        String[] columns = {"Drone ID", "State", "Zone", "Severity", "Agent %"};
+        String[] columns = {"Drone ID", "State", "Zone", "Severity", "Agent %","Fault"};
         droneTableModel = new javax.swing.table.DefaultTableModel(columns, 0);
         droneStatusTable = new JTable(droneTableModel);
         JScrollPane tableScrollPane = new JScrollPane(droneStatusTable);
@@ -109,7 +109,7 @@ public class DroneSwarmMonitor extends JFrame {
      * @param x drone x position
      * @param y drone y position
      */
-    public void updateDroneStatus(int droneID, String state, String zone, String severity, double agentRemaining, double x, double y) {
+    public void updateDroneStatus(int droneID, String state, String zone, String severity, double agentRemaining, String fault, double x, double y) {
         SwingUtilities.invokeLater(() -> {
             boolean found = false;
             for (int i = 0; i < droneTableModel.getRowCount(); i++) {
@@ -118,14 +118,15 @@ public class DroneSwarmMonitor extends JFrame {
                     droneTableModel.setValueAt(zone, i, 2);
                     droneTableModel.setValueAt(severity, i, 3);
                     droneTableModel.setValueAt(String.format("%.1f", agentRemaining), i, 4);
+                    droneTableModel.setValueAt(fault, i, 5);
                     found = true;
                     break;
                 }
             }
             if (!found) {
-                droneTableModel.addRow(new Object[]{droneID, state, zone, severity, String.format("%.1f", agentRemaining)});
+                droneTableModel.addRow(new Object[]{droneID, state, zone, severity, String.format("%.1f", agentRemaining), fault});
             }
-            mapPanel.updateDrone(droneID, x, y, state);
+            mapPanel.updateDrone(droneID, x, y, state, fault);
         });
     }
 
@@ -147,5 +148,36 @@ public class DroneSwarmMonitor extends JFrame {
 
     public void addExtinguishedFire(int zoneID) {
         mapPanel.addExtinguishedFire(zoneID);
+    }
+
+    public void addFaultLog(String subsystem, int droneID, String fault, String details) {
+        String timestamp = timeFormat.format(new Date());
+        String logEntry = String.format("[%s] %s -> DRONE %d FAULT [%s] %s\n",
+                timestamp, subsystem, droneID, fault, details);
+
+        SwingUtilities.invokeLater(() -> {
+            eventLog.append(logEntry);
+            eventLog.setCaretPosition(eventLog.getDocument().getLength());
+        });
+    }
+
+    public void setDroneOffline(int droneID, int zoneID) {
+        javax.swing.Timer timer = new javax.swing.Timer(1000, e -> {
+            SwingUtilities.invokeLater(() -> {
+                for (int i = 0; i < droneTableModel.getRowCount(); i++) {
+                    if ((int) droneTableModel.getValueAt(i, 0) == droneID) {
+                        droneTableModel.setValueAt("OFFLINE", i, 1);      // state column
+                        break;
+                    }
+                }
+
+                mapPanel.addActiveFire(zoneID);      // reset zone to fire
+                mapPanel.updateDrone(droneID, 0, 0, "OFFLINE", "NONE"); // clear fault on map too
+                mapPanel.repaint();
+            });
+        });
+
+        timer.setRepeats(false);
+        timer.start();
     }
 }

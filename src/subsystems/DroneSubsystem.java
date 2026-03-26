@@ -159,6 +159,10 @@ public class DroneSubsystem implements Runnable {
                 // Pass the fault check into the movement method
                 boolean willGetStuck = (currentEvent.getFaultType() == FireEvent.FaultType.STUCK_IN_FLIGHT);
                 boolean willLoseComms = (currentEvent.getFaultType() == FireEvent.FaultType.COMMUNICATION_LOST);
+
+                System.out.println("DEBUG fault type = " + currentEvent.getFaultType());
+                System.out.println("DEBUG willGetStuck = " + willGetStuck);
+
                 moveToTargetStepByStep(target.getCenterX(), target.getCenterY(), Drone.CRUISE_SPEED_LOADED, willGetStuck, willLoseComms);
 
                 // Check if the drone died during transit. If so, abort the rest of EN_ROUTE
