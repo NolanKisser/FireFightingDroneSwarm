@@ -14,8 +14,18 @@ This project simulates a swarm of autonomous drones designed to detect and extin
 
 **Iteration 3**
 * **UDP Networking:** Full transition from local thread-based communication to Datagram-based networking between subsystems
-* **Scheduler Logic**: Enhanced Scheduler logic  coordinates multiple drones, ensuring a balanced workload
+* **Scheduler Logic**: Enhanced Scheduler logic coordinates multiple drones, ensuring a balanced workload
 * **GUI Visualization:** A simple GUI for monitoring drone activity
+
+**Iteration 4**
+* **Fault Handling:** Comprehensive fault injection and handling mechanisms for drone failures
+* **Fault Types:** Three fault scenarios implemented:
+  - `STUCK_IN_FLIGHT`: Drone freezes mid-flight during EN_ROUTE phase
+  - `NOZZLE_JAMMED`: Nozzle doors fail to open during EXTINGUISHING phase
+  - `COMMUNICATION_LOST`: Drone loses communication during flight
+* **Fault Detection:** Real-time fault detection with graceful state transitions to FAULTED state
+* **Error Reporting:** HARD_FAULT messages sent to Scheduler for critical failures
+* **Enhanced Testing:** New fault scenario test cases validating failure handling
 
 ## Authors
 * Jordan Grewal
@@ -28,24 +38,28 @@ This project simulates a swarm of autonomous drones designed to detect and extin
 * **`Iteration 1/`**: Contains diagrams for the first iteration of the project.
 * **`Iteration 2/`**: Contains diagrams for the second iteration of the project.
 * **`Iteration 3/`**: Contains diagrams for the third iteration of the project.
+* **`Iteration 4/`**: Detailed timing diagrams showing fault scenarios and message flows.
 
 ### Source Code (`src/`)
 * **`Main.java`**: The entry point of the application. It initializes the `Scheduler`, starts the `FireIncidentSubsystem` and `DroneSubsystem` threads, and manages the simulation lifecycle.
 * **`model/`**
-  * **`FireEvent.java`**: A data transfer object representing a specific event (e.g., `FIRE_DETECTED`, `DRONE_REQUEST`) including details like time, zone ID, and severity.
+  * **`Drone.java`**: Data model representing the physical state and capabilities of a drone, including position, agent level, and state management.
+  * **`FireEvent.java`**: A data transfer object representing a specific event (e.g., `FIRE_DETECTED`, `DRONE_REQUEST`) including details like time, zone ID, severity, and fault type.
   * **`Zone.java`**: Represents a physical area defined by coordinates (x1, y1) to (x2, y2). Includes logic to calculate the center point for drone travel.
 * **`subsystems/`**
-  * **`DroneSubsystem.java`**: The "Client" that simulates a physical drone using a lifecycle state machine. It retrieves events from the `Scheduler`, calculates flight/extinguish times, and reports completion.
+  * **`DroneSubsystem.java`**: The "Client" that simulates a physical drone using a lifecycle state machine (IDLE → EN_ROUTE → EXTINGUISHING → RETURNING → REFILLING → IDLE or FAULTED). It retrieves events from the `Scheduler`, calculates flight/extinguish times, handles fault scenarios, and reports completion.
   * **`FireIncidentSubsystem.java`**: The "Client" that acts as the input generator. It reads fire events from `event_file.csv` and submits them to the Scheduler.
-  * **`Scheduler.java`**: Acts as the central server/monitor. It manages the queue of `FireEvent` objects, synchronizing access between the input subsystem and the drones. It maintains the drones operational states and coordinates drone notifications. It also loads zone data.
+  * **`Scheduler.java`**: Acts as the central server/monitor. It manages the queue of `FireEvent` objects, synchronizing access between the input subsystem and the drones. It maintains the drones operational states, coordinates drone notifications, handles fault reporting, and loads zone data.
 * **`ui/`**
   * **`DroneSwarmMonitor.java`**: A simple GUI for monitoring drone activity.
   * **`ZoneMap.java`**: A static map of zones to display on the console.
 
 ### Data Files
 * **`event_file.csv`**: Contains the list of fire incidents to simulate.
-    * *Format:* `Time, ZoneID, Type, Severity`
-    * *Example:* `14:03:15, 1, FIRE_DETECTED, High`
+    * *Format:* `Time, ZoneID, Type, Severity, FaultType`
+    * *Example:* `14:03:15, 1, FIRE_DETECTED, High, NONE`
+    * *Example (with fault):* `14:10:00, 2, FIRE_DETECTED, Low, STUCK_IN_FLIGHT`
+    * *Fault Types:* `NONE`, `STUCK_IN_FLIGHT`, `NOZZLE_JAMMED`, `COMMUNICATION_LOST`
 * **`zone_file.csv`**: Defines the geographical boundaries of the zones.
     * *Format:* `ZoneID, (StartX;StartY), (EndX;EndY)`
     * *Example:* `1, (0;0), (700;600)`
@@ -54,12 +68,13 @@ This project simulates a swarm of autonomous drones designed to detect and extin
 * **`FireEventTest.java`**: Unit tests for the FireEvent data structure (7 tests)
 * **`ZoneTest.java`**: Unit tests for the Zone class and coordinate calculations (7 tests)
 * **`SchedulerTest.java`**: Comprehensive tests for the Scheduler component including synchronization and event management (14 tests)
-* **`DroneSubsystemTest.java`**: Tests for drone behavior and event processing (14 tests)
+* **`DroneSubsystemTest.java`**: Tests for drone behavior, event processing, and fault handling scenarios (20 tests)
+  - Includes fault scenario tests: `testStuckInFlightFault()`, `testNozzleJammedFault()`, `testCommunicationLostFault()`
 * **`FireIncidentSubsystemTest.java`**: Tests for CSV parsing and event submission (13 tests)
 * **`SystemIntegrationTest.java`**: End-to-end integration tests for the complete system (10 tests)
 * **`TestSuite.java`**: Master test suite for running all tests
 
-**Total: 65 tests**
+**Total: 71 tests**
 
 ## Prerequisites
 * **Java Development Kit (JDK):** Version 21 or higher.
@@ -113,16 +128,29 @@ This project simulates a swarm of autonomous drones designed to detect and extin
 3.  **Run Simulation:** Start the subsystems in the sequence described above. The console will output the status of the drones as they travel to zones, extinguish fires, and return to base.
 
 ## Output Example
+
+### Normal Operation
 ```text
-[Drone 1] En route to Zone 1. Expected travel time: 46.1 seconds
+[14:03:15] [Drone 1] Dispatched to Zone 1
+[14:03:16] [Drone 1] En route to Zone 1. Travel time: 46.1s
 [Scheduler] Drone 1 Status Update - Loc: (350.0, 300.0), Agent: 100.0%
 [Scheduler] Notification: Drone 1 arrived at Zone 1
-[Drone 1] Opening nozzle doors... (0.5s)
-[Drone 1] Dropping 10.0% agent on Zone 1... (5.0s)
+[14:03:20] [Drone 1] Opening nozzle doors... (0.5s)
+[14:03:21] [Drone 1] Dropping 10.0% agent on Zone 1... (5.0s)
 [Scheduler] Drone 1 Status Update - Loc: (350.0, 300.0), Agent: 90.0%
-[Drone 1] Closing nozzle doors... (0.5s)
-[Drone 1] Successfully extinguished fire in Zone 1!
-[Drone 1] Returning to base. Expected return time: 30.7 seconds
+[14:03:26] [Drone 1] Closing nozzle doors... (0.5s)
+[14:03:27] [Drone 1] Successfully extinguished fire in Zone 1!
+[14:03:28] [Drone 1] Returning to base. Expected return time: 30.7 seconds
+```
+
+### Fault Scenario Example (STUCK_IN_FLIGHT)
+```text
+[14:10:00] [Drone 2] Dispatched to Zone 2
+[14:10:01] [Drone 2] En route to Zone 2. Travel time: 52.3s
+[Scheduler] Drone 2 Status Update - Loc: (100.0, 0.0), Agent: 100.0%
+[Scheduler] Drone 2 Status Update - Loc: (200.0, 0.0), Agent: 100.0%
+[14:10:05] [Drone 2] FAULT: Stuck mid-flight at (200.0, 0.0)! Commencing radio silence.
+[Scheduler] WARNING: Lost contact with Drone 2
 ```
 
 ## Design Decisions
@@ -168,10 +196,11 @@ Right-click on any test class and select **Run**:
 ### Test Coverage
 The test suite provides comprehensive coverage across all components:
 
-**Unit Tests (65 tests):**
-* Data structures (FireEvent, Zone)
+**Unit Tests (71 tests):**
+* Data structures (FireEvent, Zone, Drone)
 * Scheduler event queue management and thread synchronization
 * Drone event processing and state management
+* Fault handling scenarios (STUCK_IN_FLIGHT, NOZZLE_JAMMED, COMMUNICATION_LOST)
 * CSV file parsing and validation
 
 **Integration Tests (10 tests):**
@@ -179,6 +208,11 @@ The test suite provides comprehensive coverage across all components:
 * Producer-consumer pattern verification
 * Event ordering (FIFO) validation
 * Concurrent event processing
+
+**Fault Scenario Tests (3 tests):**
+* `testStuckInFlightFault()` - Validates drone freezes mid-flight and enters FAULTED state
+* `testNozzleJammedFault()` - Validates nozzle failure during extinguishing phase
+* `testCommunicationLostFault()` - Validates communication loss handling during flight
 
 ### Test Quality Features
 * **JUnit 5 Framework:** Industry-standard testing framework
