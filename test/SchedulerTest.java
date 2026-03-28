@@ -14,7 +14,6 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.lang.reflect.Field;
-import java.util.Map;
 
 /**
  * Unit tests for the Scheduler class.
@@ -109,7 +108,7 @@ public class SchedulerTest {
         FireEvent event = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED,
                 FireEvent.Severity.High, FireEvent.FaultType.NONE);
 
-        assertDoesNotThrow(() -> scheduler.newFireEvent(event));
+        scheduler.newFireEvent(event);
     }
 
     @Test
@@ -118,15 +117,13 @@ public class SchedulerTest {
         FireEvent event1 = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED,
                 FireEvent.Severity.High, FireEvent.FaultType.NONE);
         FireEvent event2 = new FireEvent("14:10:00", 2, FireEvent.Type.DRONE_REQUEST,
-                FireEvent.Severity.Moderate);
+                FireEvent.Severity.Moderate, FireEvent.FaultType.NONE);
         FireEvent event3 = new FireEvent("14:15:00", 3, FireEvent.Type.FIRE_DETECTED,
-                FireEvent.Severity.Low);
+                FireEvent.Severity.Low, FireEvent.FaultType.NONE);
 
-        assertDoesNotThrow(() -> {
-            scheduler.newFireEvent(event1);
-            scheduler.newFireEvent(event2);
-            scheduler.newFireEvent(event3);
-        });
+        scheduler.newFireEvent(event1);
+        scheduler.newFireEvent(event2);
+        scheduler.newFireEvent(event3);
     }
 
     @Test
@@ -134,7 +131,7 @@ public class SchedulerTest {
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
     public void testGetNextFireEvent() throws InterruptedException {
         FireEvent event = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED,
-                FireEvent.Severity.High);
+                FireEvent.Severity.High, FireEvent.FaultType.NONE);
 
         // Add event in a separate thread to avoid blocking
         Thread addThread = new Thread(() -> scheduler.newFireEvent(event));
@@ -155,11 +152,11 @@ public class SchedulerTest {
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
     public void testFireEventFIFOOrder() throws InterruptedException {
         FireEvent event1 = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED,
-                FireEvent.Severity.High);
+                FireEvent.Severity.High, FireEvent.FaultType.NONE);
         FireEvent event2 = new FireEvent("14:10:00", 2, FireEvent.Type.DRONE_REQUEST,
-                FireEvent.Severity.Moderate);
+                FireEvent.Severity.Moderate, FireEvent.FaultType.NONE);
         FireEvent event3 = new FireEvent("14:15:00", 3, FireEvent.Type.FIRE_DETECTED,
-                FireEvent.Severity.Low);
+                FireEvent.Severity.Low, FireEvent.FaultType.NONE);
 
         Thread addThread = new Thread(() -> {
             scheduler.newFireEvent(event1);
@@ -182,9 +179,9 @@ public class SchedulerTest {
     @DisplayName("Test completing a fire event")
     public void testCompleteFireEvent() {
         FireEvent event = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED,
-                FireEvent.Severity.High);
+                FireEvent.Severity.High, FireEvent.FaultType.NONE);
 
-        assertDoesNotThrow(() -> scheduler.completeFireEvent(event));
+        scheduler.completeFireEvent(event);
     }
 
     @Test
@@ -192,7 +189,7 @@ public class SchedulerTest {
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
     public void testGetCompletedEvent() throws InterruptedException {
         FireEvent event = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED,
-                FireEvent.Severity.High);
+                FireEvent.Severity.High, FireEvent.FaultType.NONE);
 
         Thread completeThread = new Thread(() -> scheduler.completeFireEvent(event));
         completeThread.start();
@@ -246,7 +243,7 @@ public class SchedulerTest {
         Thread producer = new Thread(() -> {
             for (int i = 1; i <= NUM_EVENTS; i++) {
                 FireEvent event = new FireEvent("14:0" + i + ":00", i,
-                        FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+                        FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low, FireEvent.FaultType.NONE);
                 scheduler.newFireEvent(event);
             }
             scheduler.updateAllEventsDone();
@@ -279,7 +276,7 @@ public class SchedulerTest {
         Thread producer = new Thread(() -> {
             for (int i = 0; i < NUM_EVENTS; i++) {
                 FireEvent event = new FireEvent("14:00:0" + i, i % 3 + 1,
-                        FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+                        FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low, FireEvent.FaultType.NONE);
                 scheduler.newFireEvent(event);
             }
         });
@@ -303,9 +300,9 @@ public class SchedulerTest {
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
     public void testCompletedEventsFIFOOrder() throws InterruptedException {
         FireEvent event1 = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED,
-                FireEvent.Severity.High);
+                FireEvent.Severity.High, FireEvent.FaultType.NONE);
         FireEvent event2 = new FireEvent("14:10:00", 2, FireEvent.Type.DRONE_REQUEST,
-                FireEvent.Severity.Moderate);
+                FireEvent.Severity.Moderate, FireEvent.FaultType.NONE);
 
         Thread completeThread = new Thread(() -> {
             scheduler.completeFireEvent(event1);
@@ -333,7 +330,7 @@ public class SchedulerTest {
         consumer.start();
         assertNull(holder[0]);
 
-        FireEvent event = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+        FireEvent event = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low, FireEvent.FaultType.NONE);
         scheduler.newFireEvent(event);
 
         consumer.join();
@@ -347,7 +344,7 @@ public class SchedulerTest {
     @DisplayName("Test completed event blocks until completed")
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
     public void testCompletedEventBlocksUntilCompleted() throws InterruptedException {
-        FireEvent event = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+        FireEvent event = new FireEvent("14:03:15", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low, FireEvent.FaultType.NONE);
 
         Thread drone = new Thread(new DroneSubsystem(scheduler, 1));
         drone.start();
@@ -384,8 +381,8 @@ public class SchedulerTest {
     @DisplayName("Test return to base")
     @Timeout(value = 10, unit = TimeUnit.SECONDS)
     public void testReturnToBase() {
-        FireEvent event1 = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
-        FireEvent event2 = new FireEvent("14:03:15", 2,  FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.High);
+        FireEvent event1 = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low, FireEvent.FaultType.NONE);
+        FireEvent event2 = new FireEvent("14:03:15", 2,  FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.High, FireEvent.FaultType.NONE);
 
         scheduler.newFireEvent(event1);
         scheduler.newFireEvent(event2);
@@ -406,20 +403,18 @@ public class SchedulerTest {
     @DisplayName("Test arrived to zone")
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
     public void testArriveToZone() {
-        FireEvent event = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+        FireEvent event = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low, FireEvent.FaultType.NONE);
 
-        assertDoesNotThrow(() -> {
-            scheduler.droneArrivedAtZone(1, event);
-        });
+        scheduler.droneArrivedAtZone(1, event);
     }
 
     @Test
     @DisplayName("Test FIFO still holds")
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
     public void testFIFOStillHolds() {
-        FireEvent event1 = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Moderate);
-        FireEvent event2 = new FireEvent("14:10:15", 2, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.High);
-        FireEvent event3 = new FireEvent("14:25:00", 3, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+        FireEvent event1 = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Moderate, FireEvent.FaultType.NONE);
+        FireEvent event2 = new FireEvent("14:10:15", 2, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.High, FireEvent.FaultType.NONE);
+        FireEvent event3 = new FireEvent("14:25:00", 3, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low, FireEvent.FaultType.NONE);
 
         scheduler.newFireEvent(event1);
         scheduler.newFireEvent(event2);
@@ -441,7 +436,7 @@ public class SchedulerTest {
     @DisplayName("FSM: Test new event transitions to event queued")
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
     public void newEventTransitionsToEventQueued() {
-        FireEvent event = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+        FireEvent event = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low, FireEvent.FaultType.NONE);
 
         scheduler.newFireEvent(event);
         assertEquals(Scheduler.State.WAITING, scheduler.getCurrentState());
@@ -451,7 +446,7 @@ public class SchedulerTest {
     @DisplayName("FSM: Test get next event transitions to drone active")
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
     public void getNextEventTransitionsToDroneActive() {
-        FireEvent event = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+        FireEvent event = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low, FireEvent.FaultType.NONE);
 
         scheduler.newFireEvent(event);
 
@@ -477,7 +472,7 @@ public class SchedulerTest {
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
     public void droneReturnToBaseWithEvents() {
         // scheduler.registerDrone(1);
-        FireEvent event = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low);
+        FireEvent event = new FireEvent("14:00:00", 1, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.Low, FireEvent.FaultType.NONE);
 
         // scheduler.newFireEvent(event);
         // scheduler.droneReturnToBase(1);
@@ -508,12 +503,12 @@ public class SchedulerTest {
         InetAddress address = InetAddress.getByName("localhost");
 
         // Add a fire event to the scheduler's queue
-        FireEvent event = new FireEvent("15:00:00", 3, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.High);
+        FireEvent event = new FireEvent("15:00:00", 3, FireEvent.Type.FIRE_DETECTED, FireEvent.Severity.High, FireEvent.FaultType.NONE);
         scheduler.newFireEvent(event);
 
         // Register a mock Drone via UDP
         String regMessage = "REGISTER_DRONE,1";
-        testSocket.send(new DatagramPacket(regMessage.getBytes(), regMessage.length(), address, scheduler.schedulerPort));
+        testSocket.send(new DatagramPacket(regMessage.getBytes(), regMessage.length(), address, 6000));
 
         // Receive Registration Confirmation (clears the buffer)
         byte[] buffer = new byte[1024];
@@ -524,7 +519,7 @@ public class SchedulerTest {
 
         // Send DRONE_READY to trigger assignment
         String readyMessage = "DRONE_READY,1";
-        testSocket.send(new DatagramPacket(readyMessage.getBytes(), readyMessage.length(), address, scheduler.schedulerPort));
+        testSocket.send(new DatagramPacket(readyMessage.getBytes(), readyMessage.length(), address, 6000));
 
         // Receive ASSIGN_EVENT from the Scheduler
         testSocket.receive(receivePacket);
@@ -557,19 +552,19 @@ public class SchedulerTest {
 
         // Register Drone 1 and Drone 2
         String reg1 = "REGISTER_DRONE,1";
-        testSocket.send(new DatagramPacket(reg1.getBytes(), reg1.length(), address, scheduler.schedulerPort));
+        testSocket.send(new DatagramPacket(reg1.getBytes(), reg1.length(), address, 6000));
 
         String reg2 = "REGISTER_DRONE,2";
-        testSocket.send(new DatagramPacket(reg2.getBytes(), reg2.length(), address, scheduler.schedulerPort));
+        testSocket.send(new DatagramPacket(reg2.getBytes(), reg2.length(), address, 6000));
 
         Thread.sleep(500); // Allow UDP processing time
 
         // Send Status Updates for both drones concurrently
         String stat1 = "STATUS_UPDATE,1,EN_ROUTE,350.0,300.0,100.0";
-        testSocket.send(new DatagramPacket(stat1.getBytes(), stat1.length(), address, scheduler.schedulerPort));
+        testSocket.send(new DatagramPacket(stat1.getBytes(), stat1.length(), address, 6000));
 
         String stat2 = "STATUS_UPDATE,2,EXTINGUISHING,150.0,200.0,85.5";
-        testSocket.send(new DatagramPacket(stat2.getBytes(), stat2.length(), address, scheduler.schedulerPort));
+        testSocket.send(new DatagramPacket(stat2.getBytes(), stat2.length(), address, 6000));
 
         Thread.sleep(500); // Allow UDP processing time
 
