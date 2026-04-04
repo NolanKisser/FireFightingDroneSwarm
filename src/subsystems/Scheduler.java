@@ -2,6 +2,7 @@ package subsystems;
 
 import model.*;
 import ui.*;
+import metrics.MetricsTracker;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -97,6 +98,9 @@ public class Scheduler implements Runnable {
     public int schedulerPort = 6000;
     private DatagramSocket socket;
     private boolean udpRunning = true;
+
+    // metrics
+    private final MetricsTracker metrics = new MetricsTracker();
 
     /**
      * Constructs a Scheduler with provided zone CSV file path
@@ -234,6 +238,13 @@ public class Scheduler implements Runnable {
                     double statusAgent = Double.parseDouble(messageParts[5].trim());
 
                     updateDroneStatus(statusDroneID, statusX, statusY, statusAgent);
+
+                    // track movement metrics
+                    metrics.recordDroneLocation(statusDroneID, statusX, statusY);
+
+                    // track time spent in states
+                    metrics.recordDroneStateChange(statusDroneID, statusDroneState);
+
                     DroneStatus statusPtr = droneStatuses.get(statusDroneID);
                     if (monitor != null && statusPtr != null) {
                         String zoneStr = statusPtr.currentMission != null ? String.valueOf(statusPtr.currentMission.getZoneID()) : "N/A";
@@ -295,6 +306,10 @@ public class Scheduler implements Runnable {
                             readyStatus.expectedArrivalTime = System.currentTimeMillis() + expectedTravelMillis + 3000;
                         }
                         activeDroneCount++;
+
+                        // metrics tracker
+                        metrics.recordDroneAssignment(event.getZoneID(), droneID);
+                        metrics.recordDroneStateChange(droneID, "EN_ROUTE");
 
                         String newMessage = "ASSIGN_EVENT," + event.getTime() + "," + event.getZoneID() + "," + event.getSeverity() + "," + event.getFaultType();
                         sendUDPMessage(newMessage, address, port);
@@ -433,6 +448,12 @@ public class Scheduler implements Runnable {
                                     }
                                 }
                                 try { Thread.sleep(200); } catch (InterruptedException e) {}
+
+                                // final metrics
+                                metrics.finalizeMetrics();
+                                metrics.markSimulationEnd();
+                                metrics.printSummary();
+
                                 running = false; // Simulation is finished
                                 udpRunning = false;
                                 if (socket != null && !socket.isClosed()) {
@@ -494,6 +515,8 @@ public class Scheduler implements Runnable {
         status.address = address;
         status.port = port;
 
+        metrics.registerDrone(droneID);
+
     }
 
     /**
@@ -501,6 +524,9 @@ public class Scheduler implements Runnable {
      * @param fireEvent event to add
      */
     public synchronized void newFireEvent(FireEvent fireEvent) {
+        // metrics tracker for fire detected
+        metrics.recordFireStart(fireEvent.getZoneID());
+
         if (monitor != null) {
             monitor.addActiveFire(fireEvent.getZoneID());
         }
@@ -598,6 +624,10 @@ public class Scheduler implements Runnable {
     public synchronized boolean droneReturnToBase(int droneID){
         System.out.println("[Scheduler] Notification: Drone " + droneID + " returned to base.");
         DroneStatus status = droneStatuses.get(droneID);
+
+        // drone return to idle tracker
+        metrics.recordDroneStateChange(droneID, "IDLE");
+
         if (status != null) {
             status.currentMission = null;
             status.agentRemaining = 100.0;
@@ -629,6 +659,10 @@ public class Scheduler implements Runnable {
      * @param fireEvent
      */
     public synchronized void completeFireEvent(FireEvent fireEvent) {
+
+        // fire extinguished metrics tracker
+        metrics.recordFireExtinguished(fireEvent.getZoneID());
+
         if (monitor != null) {
             monitor.removeActiveFire(fireEvent.getZoneID());
             monitor.addExtinguishedFire(fireEvent.getZoneID());
