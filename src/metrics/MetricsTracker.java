@@ -211,6 +211,32 @@ public class MetricsTracker {
     }
 
     /**
+     * Retrieves the metrics for a specific drone.
+     * Useful for verifying distance, flight time, and idle time in tests.
+     * * @param droneId The ID of the drone
+     * @return The DroneMetrics object for the specified drone, or null if not registered
+     */
+    public DroneMetrics getDroneMetrics(int droneId) {
+        return droneMetrics.get(droneId);
+    }
+
+    /**
+     * Retrieves the total number of fire events recorded.
+     * @return total fire events
+     */
+    public int getTotalFireEvents() {
+        return totalFireEvents.get();
+    }
+
+    /**
+     * Retrieves the total number of extinguished fires recorded.
+     * @return total extinguished fires
+     */
+    public int getTotalExtinguishedFires() {
+        return totalExtinguishedFires.get();
+    }
+
+    /**
      * Print Iteration 5 metrics summary.
      */
     public void printSummary() {
