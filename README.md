@@ -27,6 +27,10 @@ This project simulates a swarm of autonomous drones designed to detect and extin
 * **Error Reporting:** HARD_FAULT messages sent to Scheduler for critical failures
 * **Enhanced Testing:** New fault scenario test cases validating failure handling
 
+**Iteration 5**
+* **Agent Capacity:** Added new state if there's enough agent to route that drone onto next mission.
+* **State Diagram:** Updated state machine diagram for DroneSubSystem.
+
 ## Authors
 * Jordan Grewal
 * Nolan Kisser
