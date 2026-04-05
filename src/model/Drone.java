@@ -9,6 +9,7 @@ public class Drone {
         IDLE,
         EN_ROUTE,
         EXTINGUISHING,
+        EN_ROUTE_NEXT_MISSION,
         RETURNING,
         REFILLING,
         FAULTED

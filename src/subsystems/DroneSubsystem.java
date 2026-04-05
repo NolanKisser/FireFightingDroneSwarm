@@ -190,6 +190,46 @@ public class DroneSubsystem implements Runnable {
                 drone.setState(Drone.DroneState.EXTINGUISHING);
                 break;
 
+            case EN_ROUTE_NEXT_MISSION:
+                FireEvent missionEvent = drone.getCurrentMission();
+                Zone missionTarget = scheduler.getZones().get(missionEvent.getZoneID());
+                double missionTravelTime = drone.computeTravelTime(missionTarget.getCenterX(), missionTarget.getCenterY(), true);
+
+                System.out.printf("[%s] [Drone %d] Continuing en route to next Zone %d. Expected travel time: %.1fs\n",
+                        ts(), drone.getId(), missionEvent.getZoneID(), missionTravelTime);
+
+                // START TIMER for fault detection
+                travelStartTime = Instant.now();
+                expectedTravelTimeSeconds = (long) Math.ceil(missionTravelTime);
+
+                moveToTargetStepByStep(missionTarget.getCenterX(), missionTarget.getCenterY(), Drone.CRUISE_SPEED_LOADED);
+
+                // Check if the drone died during transit.
+                if (drone.getState() == Drone.DroneState.FAULTED) {
+                    String faultType = missionEvent.getFaultType() == FireEvent.FaultType.STUCK_IN_FLIGHT ? "STUCK_IN_FLIGHT" : "UNKNOWN";
+                    reportFault(faultType, missionEvent);
+                    return; // Return to let handleEvent process FAULTED state
+                }
+
+                // CHECK FOR STUCK_IN_FLIGHT FAULT
+                if (missionEvent.getFaultType() == FireEvent.FaultType.STUCK_IN_FLIGHT) {
+                    System.err.printf("[%s] [Drone %d] FAULT DETECTED: STUCK_IN_FLIGHT during travel!\n", ts(), drone.getId());
+                    reportFault("STUCK_IN_FLIGHT", missionEvent);
+                    return;
+                }
+
+                // CHECK FOR COMMUNICATION_LOST FAULT
+                if (missionEvent.getFaultType() == FireEvent.FaultType.COMMUNICATION_LOST) {
+                    System.err.printf("[%s] [Drone %d] FAULT DETECTED: COMMUNICATION_LOST during travel!\n", ts(), drone.getId());
+                    reportFault("COMMUNICATION_LOST", missionEvent);
+                    return;
+                }
+
+                sendOnly("DRONE_ARRIVE_TO_ZONE," + drone.getId() + "," + missionEvent.getTime() + "," +
+                        missionEvent.getZoneID() + "," + missionEvent.getSeverity());
+                drone.setState(Drone.DroneState.EXTINGUISHING);
+                break;
+
             case EXTINGUISHING:
                 FireEvent ev = drone.getCurrentMission();
                 // NOZZLE_JAMMED FAULT
@@ -221,13 +261,35 @@ public class DroneSubsystem implements Runnable {
                 if (volumeToDrop >= requiredVolume) {
                     System.out.printf("[%s] [Drone %d] Successfully extinguished fire in Zone %d!\n", ts(), drone.getId(), ev.getZoneID());
                     sendOnly("DRONE_COMPLETE_EVENT," + drone.getId() + "," + ev.getTime() + "," + ev.getZoneID() + "," + ev.getSeverity());
+                    
+                    // Optimization: Check if drone can take another mission
+                    String nextMissionResponse = sendAndReceive("REQUEST_NEXT_MISSION," + drone.getId() + "," + drone.getAgentLevel());
+                    String[] nextParts = nextMissionResponse.split(",");
+                    
+                    if (nextParts[0].trim().equals("ASSIGN_EVENT")) {
+                        // Drone can handle another mission
+                        String nextTime = nextParts[1].trim();
+                        int nextZoneID = Integer.parseInt(nextParts[2].trim());
+                        FireEvent.Severity nextSeverity = FireEvent.Severity.valueOf(nextParts[3].trim());
+                        FireEvent.FaultType nextFaultType = nextParts.length > 4 ? FireEvent.FaultType.valueOf(nextParts[4].trim()) : FireEvent.FaultType.NONE;
+                        
+                        FireEvent nextEvent = new FireEvent(nextTime, nextZoneID, FireEvent.Type.FIRE_DETECTED, nextSeverity, nextFaultType);
+                        drone.setCurrentMission(nextEvent);
+                        drone.setState(Drone.DroneState.EN_ROUTE_NEXT_MISSION);
+                        
+                        System.out.printf("[%s] [Drone %d] Proceeding directly to next Zone %d (remaining agent: %.1f%%)\n", ts(), drone.getId(), nextZoneID, drone.getAgentLevel());
+                    } else {
+                        // No suitable mission, return to base
+                        drone.setState(Drone.DroneState.RETURNING);
+                        drone.setCurrentMission(null);
+                        System.out.printf("[%s] [Drone %d] No suitable next mission available. Returning to base.\n", ts(), drone.getId());
+                    }
                 } else {
                     System.out.printf("[%s] [Drone %d] Ran out of agent! Fire in Zone %d not fully extinguished.\n", ts(), drone.getId(), ev.getZoneID());
                     sendOnly("REQUEUE_EVENT," + drone.getId() + "," + ev.getTime() + "," + ev.getZoneID() + "," + ev.getSeverity());
+                    drone.setState(Drone.DroneState.RETURNING);
+                    drone.setCurrentMission(null);
                 }
-
-                drone.setState(Drone.DroneState.RETURNING);
-                drone.setCurrentMission(null);
                 break;
 
             case RETURNING:

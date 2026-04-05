@@ -337,6 +337,66 @@ public class Scheduler implements Runnable {
                     FaultType fType = FaultType.valueOf(messageParts[2].trim());
                     reportFault(droneID, fType);
                     break;
+                case "REQUEST_NEXT_MISSION":
+                    droneID = Integer.parseInt(messageParts[1].trim());
+                    double agentRemaining = Double.parseDouble(messageParts[2].trim());
+                    
+                    if (!incompleteEvents.isEmpty()) {
+                        DroneStatus requestingDrone = droneStatuses.get(droneID);
+                        FireEvent nextEvent = incompleteEvents.peek();
+                        Zone nextZone = zones.get(nextEvent.getZoneID());
+                        
+                        if (requestingDrone != null && nextZone != null) {
+                            // Use Drone helper methods for calculations
+                            Drone tempDrone = new Drone(droneID);
+                            tempDrone.setLocation(requestingDrone.currentX, requestingDrone.currentY);
+                            
+                            double distToZone = tempDrone.distanceTo(nextZone.getCenterX(), nextZone.getCenterY());
+                            
+                            // Get required volume for the next mission
+                            double requiredVolume = tempDrone.getRequiredVolume(nextEvent);
+                            
+                            // Add buffer (25%) to ensure safe return to base
+                            double minimumAgentForContinuation = requiredVolume * 1.25;
+                            
+                            // Check if drone has enough agent to handle next mission and return to base
+                            if (agentRemaining >= minimumAgentForContinuation) {
+                                // Attempt to assign the next mission to this drone
+                                FireEvent assignedEvent = incompleteEvents.poll();
+                                
+                                // Verify that another drone hasn't taken this mission (safety check)
+                                if (assignedEvent != null && assignedEvent.getZoneID() == nextEvent.getZoneID()) {
+                                    requestingDrone.currentMission = assignedEvent;
+                                    requestingDrone.waitingForEvent = false;
+                                    activeDroneCount++;
+                                    
+                                    // Set timeout timer for new assignment
+                                    long expectedTravelMillis = (long) ((distToZone / Drone.CRUISE_SPEED_LOADED) * 10);
+                                    requestingDrone.expectedArrivalTime = System.currentTimeMillis() + expectedTravelMillis + 3000;
+                                    
+                                    String assignMessage = "ASSIGN_EVENT," + assignedEvent.getTime() + "," + 
+                                                          assignedEvent.getZoneID() + "," + assignedEvent.getSeverity() + "," + 
+                                                          assignedEvent.getFaultType();
+                                    sendUDPMessage(assignMessage, address, port);
+                                    System.out.println("[Scheduler] Drone " + droneID + " approved to continue to next zone (agent: " + agentRemaining + "%, required: " + minimumAgentForContinuation + "%)");
+                                } else {
+                                    // Mission was taken by another drone - return to base
+                                    sendUDPMessage("RETURN_TO_BASE,", address, port);
+                                    System.out.println("[Scheduler] Drone " + droneID + " requested mission but it was taken by another drone. Sending to base.");
+                                }
+                            } else {
+                                // Insufficient agent - drone must return to base
+                                sendUDPMessage("RETURN_TO_BASE,", address, port);
+                                System.out.println("[Scheduler] Drone " + droneID + " has insufficient agent (" + agentRemaining + "%) for next mission. Sending to base.");
+                            }
+                        } else {
+                            sendUDPMessage("RETURN_TO_BASE,", address, port);
+                        }
+                    } else {
+                        // No more events in queue - return to base
+                        sendUDPMessage("RETURN_TO_BASE,", address, port);
+                    }
+                    break;
                 case "REQUEUE_EVENT":
                     droneID = Integer.parseInt(messageParts[1].trim());
                     String requeueTime = messageParts[2].trim();
