@@ -50,23 +50,36 @@ public class ZoneMap extends JPanel {
     }
     
     private final Map<Integer, DroneRenderInfo> drones = new ConcurrentHashMap<>();
-    private final java.util.Set<Integer> activeFires = ConcurrentHashMap.newKeySet();
+    private final Map<Integer, Integer> activeFires = new ConcurrentHashMap<>();
     private final java.util.Set<Integer> extinguishedFires = ConcurrentHashMap.newKeySet();
 
     public void addActiveFire(int zoneID) {
-        activeFires.add(zoneID);
+        // Increment the count of fires for this zone
+        activeFires.put(zoneID, activeFires.getOrDefault(zoneID, 0) + 1);
         extinguishedFires.remove(zoneID);
         repaint();
     }
 
     public void removeActiveFire(int zoneID) {
-        activeFires.remove(zoneID);
+        // Decrement the active fire count safely
+        int count = activeFires.getOrDefault(zoneID, 0);
+        if (count > 0) {
+            activeFires.put(zoneID, count - 1);
+        }
         repaint();
     }
 
     public void addExtinguishedFire(int zoneID) {
-        activeFires.remove(zoneID);
-        extinguishedFires.add(zoneID);
+        // Decrement the active fire count
+        int count = activeFires.getOrDefault(zoneID, 0);
+        if (count > 0) {
+            activeFires.put(zoneID, count - 1);
+        }
+
+        // ONLY mark the zone as extinguished (green) if there are 0 active fires left
+        if (activeFires.getOrDefault(zoneID, 0) == 0) {
+            extinguishedFires.add(zoneID);
+        }
         repaint();
     }
 
@@ -278,7 +291,7 @@ public class ZoneMap extends JPanel {
             int centerX = offsetX + (int) (z.getCenterX() * fitScale);
             int centerY = offsetY + (int) (z.getCenterY() * fitScale);
 
-            if (activeFires.contains(z.getZoneID())) {
+            if (activeFires.getOrDefault(z.getZoneID(), 0) > 0) {
                 g2.setColor(new Color(255, 0, 0)); // Red active fire
                 // Center the unit block on the logical center coordinate
                 g2.fillRect(centerX - fireUnitSize / 2, centerY - fireUnitSize / 2, fireUnitSize, fireUnitSize);
