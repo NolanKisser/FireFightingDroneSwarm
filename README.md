@@ -39,9 +39,12 @@ This project simulates a swarm of autonomous drones designed to detect and extin
 * **`Iteration 2/`**: Contains diagrams for the second iteration of the project.
 * **`Iteration 3/`**: Contains diagrams for the third iteration of the project.
 * **`Iteration 4/`**: Detailed timing diagrams showing fault scenarios and message flows.
+* **`Iteration 5/`**: Updated State Machine diagram and timing diagram for no fault situation
 
 ### Source Code (`src/`)
 * **`Main.java`**: The entry point of the application. It initializes the `Scheduler`, starts the `FireIncidentSubsystem` and `DroneSubsystem` threads, and manages the simulation lifecycle.
+* **`metrics/`**
+  * **`MetricsTracker`**: Instrument class to calculate performace metrics of the simulation.
 * **`model/`**
   * **`Drone.java`**: Data model representing the physical state and capabilities of a drone, including position, agent level, and state management.
   * **`FireEvent.java`**: A data transfer object representing a specific event (e.g., `FIRE_DETECTED`, `DRONE_REQUEST`) including details like time, zone ID, severity, and fault type.

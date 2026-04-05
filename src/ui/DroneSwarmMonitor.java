@@ -22,10 +22,13 @@ public class DroneSwarmMonitor extends JFrame {
     private JLabel activeFiresLabel;
     private JTable droneStatusTable;
     private javax.swing.table.DefaultTableModel droneTableModel;
+    private JSpinner droneCountSpinner;
+    private Scheduler scheduler;
 
     public DroneSwarmMonitor() {
         super("SYSC 3303A: Firefighting Drone Swarm Monitor");
         this.timeFormat = new SimpleDateFormat("HH:mm:ss.SSS");
+        this.scheduler = null;
         setupUI();
     }
 
@@ -42,11 +45,37 @@ public class DroneSwarmMonitor extends JFrame {
         controlPanel.add(Box.createHorizontalStrut(20));
         controlPanel.add(activeFiresLabel);
         
+        // Drone count spinner
+        controlPanel.add(Box.createHorizontalStrut(20));
+        controlPanel.add(new JLabel("Number of Drones:"));
+        droneCountSpinner = new JSpinner(new SpinnerNumberModel(3, 1, 10, 1));
+        droneCountSpinner.setPreferredSize(new Dimension(50, 30));
+        controlPanel.add(droneCountSpinner);
+        
         JButton launchButton = new JButton("Launch Simulation");
         launchButton.addActionListener(e -> {
-            Thread fireincidentsubsystem = new Thread(new FireIncidentSubsystem("event_file.csv"));
-            fireincidentsubsystem.start();
+            int droneCount = (int) droneCountSpinner.getValue();
+            
+            // Create scheduler with monitor
+            scheduler = new Scheduler("zone_file.csv", this);
+            
+            // Start scheduler thread
+            Thread schedulerThread = new Thread(scheduler, "Scheduler-Thread");
+            schedulerThread.start();
+            
+            // Create and start drone threads
+            for (int i = 1; i <= droneCount; i++) {
+                Thread droneThread = new Thread(new DroneSubsystem(scheduler, i), "Drone-" + i);
+                droneThread.start();
+            }
+            
+            // Start fire incident subsystem
+            Thread fireIncidentThread = new Thread(new FireIncidentSubsystem("event_file.csv"), "FireIncident-Thread");
+            fireIncidentThread.start();
+            
             launchButton.setEnabled(false);
+            droneCountSpinner.setEnabled(false);
+            addLog("SYSTEM", "Simulation started with " + droneCount + " drones");
         });
         controlPanel.add(Box.createHorizontalStrut(20));
         controlPanel.add(launchButton);
