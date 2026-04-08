@@ -136,7 +136,7 @@ public class Scheduler implements Runnable {
      * @param args command line arguments
      */
     public static void main(String[] args) {
-        String zonesFilePath = "zone_file.csv";
+        String zonesFilePath = "Final_zone_file_w26.csv";
         DroneSwarmMonitor monitor = new DroneSwarmMonitor();
         Scheduler scheduler = new Scheduler(zonesFilePath, monitor);
         scheduler.run();

@@ -94,7 +94,7 @@ public class ZoneMap extends JPanel {
 
     public ZoneMap() {
         this.setBackground(Color.WHITE);
-        loadZonesCSV("zone_file.csv");
+        loadZonesCSV("Final_zone_file_w26.csv");
     }
 
     @Override

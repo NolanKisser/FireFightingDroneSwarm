@@ -53,7 +53,7 @@ public class FireIncidentSubsystem implements Runnable {
             while((line = br.readLine()) != null) {
                 String[] row = line.split(",");
 
-                Thread.sleep((int) (Math.random() * 5000));
+                Thread.sleep((int) (Math.random() * 2000));
 
                 String time = row[0].trim();
                 int zoneID = Integer.parseInt(row[1].trim());
@@ -130,7 +130,7 @@ public class FireIncidentSubsystem implements Runnable {
      * @param args command line arguments
      */
     public static void main(String[] args) {
-        String csvFilePath = "event_file.csv";
+        String csvFilePath = "Final_event_file_w26.csv";
         Thread fireincidentsubsystem = new Thread(new FireIncidentSubsystem(csvFilePath));
         fireincidentsubsystem.start();
 

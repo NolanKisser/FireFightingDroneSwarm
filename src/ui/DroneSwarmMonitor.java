@@ -57,7 +57,7 @@ public class DroneSwarmMonitor extends JFrame {
             int droneCount = (int) droneCountSpinner.getValue();
             
             // Create scheduler with monitor
-            scheduler = new Scheduler("zone_file.csv", this);
+            scheduler = new Scheduler("Final_zone_file_w26.csv", this);
             
             // Start scheduler thread
             Thread schedulerThread = new Thread(scheduler, "Scheduler-Thread");
@@ -70,7 +70,7 @@ public class DroneSwarmMonitor extends JFrame {
             }
             
             // Start fire incident subsystem
-            Thread fireIncidentThread = new Thread(new FireIncidentSubsystem("event_file.csv"), "FireIncident-Thread");
+            Thread fireIncidentThread = new Thread(new FireIncidentSubsystem("Final_event_file_w26.csv"), "FireIncident-Thread");
             fireIncidentThread.start();
             
             launchButton.setEnabled(false);

@@ -53,7 +53,7 @@ public class DroneSubsystem implements Runnable {
             }
         }
 
-        Scheduler scheduler = new Scheduler("zone_file.csv");
+        Scheduler scheduler = new Scheduler("Final_zone_file_w26.csv");
         DroneSubsystem subsystem = new DroneSubsystem(scheduler, id);
         Thread droneThread = new Thread(subsystem);
         droneThread.start();
