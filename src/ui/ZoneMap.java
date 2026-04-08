@@ -104,10 +104,10 @@ public class ZoneMap extends JPanel {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         //Fixed World Bounds as per assumptions
-        final int WORLD_WIDTH = 3000;  // 3000 meters
-        final int WORLD_HEIGHT = 1500; // 1500 meters
+        final int WORLD_WIDTH = 2500;  // 2500 meters
+        final int WORLD_HEIGHT = 2500; // 2500 meters
         final int GRID_SIZE = 100;     // 100 meters per box
-        final int ZONE_WIDTH = 2000;   // 2000 meters zone area
+        final int ZONE_WIDTH = 2500;   // 2500 meters zone area
 
         //Calculate scale to fit the panel perfectly without stretching
         double scaleX = (double) getWidth() / WORLD_WIDTH;
@@ -121,9 +121,9 @@ public class ZoneMap extends JPanel {
         //Draw the 100m Grid boxes
         g2.setColor(new Color(230, 230, 230));
         for (int i = 0; i <= WORLD_WIDTH; i += GRID_SIZE) {
-            if (i > WORLD_WIDTH - (GRID_SIZE * 6) && i < WORLD_WIDTH) {
-                continue;
-            }
+            // if (i > WORLD_WIDTH - (GRID_SIZE * 6) && i < WORLD_WIDTH) {
+            //     continue;
+            // }
             int x = offsetX + (int) (i * fitScale);
             g2.drawLine(x, offsetY, x, offsetY + (int) (WORLD_HEIGHT * fitScale));
         }
@@ -132,7 +132,7 @@ public class ZoneMap extends JPanel {
             g2.drawLine(offsetX, y, offsetX + (int) (WORLD_WIDTH * fitScale), y);
         }
 
-        // Zone area border (2000m x 1500m)
+        // Zone area border (2500m x 2500m)
         g2.setColor(Color.BLACK);
         g2.setStroke(new BasicStroke(2));
         g2.drawRect(
@@ -142,123 +142,123 @@ public class ZoneMap extends JPanel {
                 (int) (WORLD_HEIGHT * fitScale)
         );
 
-        // Legend aligned to grid units
+        // Legend aligned to grid units - using 2x2 cells for better visibility
         int legendCellSize = (int) (GRID_SIZE * fitScale);
-        int legendStartX = offsetX + (int) ((WORLD_WIDTH - (GRID_SIZE * 7)) * fitScale);
+        int legendIconSize = legendCellSize * 2;  // 2x2 cells for legend icons
+        int legendStartX = offsetX + (int) ((ZONE_WIDTH + GRID_SIZE) * fitScale);
         int legendStartY = offsetY;
-        int legendFontSize = Math.max(10, (int) (legendCellSize * 0.40));
+        int legendFontSize = Math.max(14, (int) (legendCellSize * 0.3));
         g2.setFont(new Font("SansSerif", Font.PLAIN, legendFontSize));
         g2.setColor(Color.BLACK);
 
         int legendY = legendStartY;
-        int labelTextPad = Math.max(4, (int) (legendCellSize * 0.07)) - 2;
-        int descTextPad = Math.max(6, (int) (legendCellSize * 0.12));
-        int descColX = offsetX + (int) ((WORLD_WIDTH - (GRID_SIZE * 6)) * fitScale);
-        int descX = descColX + descTextPad;
-        int descTextY = legendY + legendCellSize - labelTextPad - 1;
+        int labelTextPad = Math.max(4, (int) (legendIconSize * 0.05));
+        int descTextPad = legendIconSize + Math.max(10, (int) (legendIconSize * 0.08));
+        int descX = legendStartX + descTextPad;
+        int descTextY = legendY + legendIconSize - labelTextPad;
 
         g2.setColor(new Color(220, 240, 220));
-        g2.fillRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.fillRect(legendStartX, legendY, legendIconSize, legendIconSize);
         g2.setColor(Color.BLACK);
-        g2.drawRect(legendStartX, legendY, legendCellSize, legendCellSize);
-        g2.drawString("Z(n)", legendStartX + labelTextPad, descTextY);
+        g2.drawRect(legendStartX, legendY, legendIconSize, legendIconSize);
+        g2.drawString("Z(n)", legendStartX, descTextY);
         g2.drawString("Zone Label", descX, descTextY);
-        legendY += legendCellSize;
+        legendY += legendIconSize;
 
-        descTextY = legendY + legendCellSize - labelTextPad;
+        descTextY = legendY + legendIconSize - labelTextPad;
         g2.setColor(new Color(255, 0, 0));
-        g2.fillRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.fillRect(legendStartX, legendY, legendIconSize, legendIconSize);
         g2.setColor(Color.BLACK);
-        g2.drawRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.drawRect(legendStartX, legendY, legendIconSize, legendIconSize);
         g2.drawString("Active fire", descX, descTextY);
-        legendY += legendCellSize;
+        legendY += legendIconSize;
 
-        descTextY = legendY + legendCellSize - labelTextPad;
+        descTextY = legendY + legendIconSize - labelTextPad;
         g2.setColor(new Color(90, 170, 70));
-        g2.fillRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.fillRect(legendStartX, legendY, legendIconSize, legendIconSize);
         g2.setColor(Color.BLACK);
-        g2.drawRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.drawRect(legendStartX, legendY, legendIconSize, legendIconSize);
         g2.drawString("Extinguished fire", descX, descTextY);
-        legendY += legendCellSize;
+        legendY += legendIconSize;
 
-        descTextY = legendY + legendCellSize - labelTextPad;
+        descTextY = legendY + legendIconSize - labelTextPad;
         g2.setColor(new Color(0, 0, 255));
-        g2.fillRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.fillRect(legendStartX, legendY, legendIconSize, legendIconSize);
         g2.setColor(Color.BLACK);
-        g2.drawRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.drawRect(legendStartX, legendY, legendIconSize, legendIconSize);
         g2.drawString("Idle / Refilling", descX, descTextY);
-        legendY += legendCellSize;
+        legendY += legendIconSize;
 
-        descTextY = legendY + legendCellSize - labelTextPad;
+        descTextY = legendY + legendIconSize - labelTextPad;
         g2.setColor(new Color(240, 200, 60));
-        g2.fillRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.fillRect(legendStartX, legendY, legendIconSize, legendIconSize);
         g2.setColor(Color.BLACK);
-        g2.drawRect(legendStartX, legendY, legendCellSize, legendCellSize);
-        g2.drawString("D(n)", legendStartX + labelTextPad, descTextY);
+        g2.drawRect(legendStartX, legendY, legendIconSize, legendIconSize);
+        g2.drawString("D(n)", legendStartX, descTextY);
         g2.drawString("Drone outbound", descX, descTextY);
-        legendY += legendCellSize;
+        legendY += legendIconSize;
 
-        descTextY = legendY + legendCellSize - labelTextPad;
+        descTextY = legendY + legendIconSize - labelTextPad;
         g2.setColor(new Color(110, 160, 60));
-        g2.fillRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.fillRect(legendStartX, legendY, legendIconSize, legendIconSize);
         g2.setColor(Color.BLACK);
-        g2.drawRect(legendStartX, legendY, legendCellSize, legendCellSize);
-        g2.drawString("D(n)", legendStartX + labelTextPad, descTextY);
+        g2.drawRect(legendStartX, legendY, legendIconSize, legendIconSize);
+        g2.drawString("D(n)", legendStartX, descTextY);
         g2.drawString("Drone Extinguishing fire", descX, descTextY);
-        legendY += legendCellSize;
+        legendY += legendIconSize;
 
-        descTextY = legendY + legendCellSize - labelTextPad;
+        descTextY = legendY + legendIconSize - labelTextPad;
         g2.setColor(new Color(190, 110, 200));
-        g2.fillRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.fillRect(legendStartX, legendY, legendIconSize, legendIconSize);
         g2.setColor(Color.BLACK);
-        g2.drawRect(legendStartX, legendY, legendCellSize, legendCellSize);
-        g2.drawString("D(n)", legendStartX + labelTextPad, descTextY);
+        g2.drawRect(legendStartX, legendY, legendIconSize, legendIconSize);
+        g2.drawString("D(n)", legendStartX, descTextY);
         g2.drawString("Drone Returning", descX, descTextY);
-        legendY += legendCellSize;
+        legendY += legendIconSize;
 
-        descTextY = legendY + legendCellSize - labelTextPad;
+        descTextY = legendY + legendIconSize - labelTextPad;
         g2.setColor(new Color(170, 171, 164));
-        g2.fillRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.fillRect(legendStartX, legendY, legendIconSize, legendIconSize);
         g2.setColor(Color.BLACK);
-        g2.drawRect(legendStartX, legendY, legendCellSize, legendCellSize);
-        g2.drawString("D(n)", legendStartX + labelTextPad, descTextY);
+        g2.drawRect(legendStartX, legendY, legendIconSize, legendIconSize);
+        g2.drawString("D(n)", legendStartX, descTextY);
         g2.drawString("Drone Offline", descX, descTextY);
-        legendY += legendCellSize * 2;
+        legendY += legendIconSize * 2;
 
         g2.setFont(g2.getFont().deriveFont(Font.BOLD));
         g2.drawString("Fault Types", legendStartX, legendY - 5);
         g2.setFont(g2.getFont().deriveFont(Font.PLAIN));
 
-        descTextY = legendY + legendCellSize - labelTextPad;
+        descTextY = legendY + legendIconSize - labelTextPad;
         g2.setColor(new Color(250, 87, 87));
-        g2.fillRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.fillRect(legendStartX, legendY, legendIconSize, legendIconSize);
         g2.setColor(Color.BLACK);
-        g2.drawRect(legendStartX, legendY, legendCellSize, legendCellSize);
-        g2.drawString("D(n)", legendStartX + labelTextPad, descTextY);
+        g2.drawRect(legendStartX, legendY, legendIconSize, legendIconSize);
+        g2.drawString("D(n)", legendStartX, descTextY);
         g2.drawString("Drone nozzle jammed", descX, descTextY);
-        legendY += legendCellSize;
+        legendY += legendIconSize;
 
-        descTextY = legendY + legendCellSize - labelTextPad;
+        descTextY = legendY + legendIconSize - labelTextPad;
         g2.setColor(new Color(130, 5, 5));
-        g2.fillRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.fillRect(legendStartX, legendY, legendIconSize, legendIconSize);
         g2.setColor(Color.BLACK);
-        g2.drawRect(legendStartX, legendY, legendCellSize, legendCellSize);
-        g2.drawString("D(n)", legendStartX + labelTextPad, descTextY);
+        g2.drawRect(legendStartX, legendY, legendIconSize, legendIconSize);
+        g2.drawString("D(n)", legendStartX, descTextY);
         g2.drawString("Drone stuck in flight", descX, descTextY);
-        legendY += legendCellSize;
+        legendY += legendIconSize;
 
-        descTextY = legendY + legendCellSize - labelTextPad;
+        descTextY = legendY + legendIconSize - labelTextPad;
         g2.setColor(new Color(252, 136, 20));
-        g2.fillRect(legendStartX, legendY, legendCellSize, legendCellSize);
+        g2.fillRect(legendStartX, legendY, legendIconSize, legendIconSize);
         g2.setColor(Color.BLACK);
-        g2.drawRect(legendStartX, legendY, legendCellSize, legendCellSize);
-        g2.drawString("D(n)", legendStartX + labelTextPad, descTextY);
+        g2.drawRect(legendStartX, legendY, legendIconSize, legendIconSize);
+        g2.drawString("D(n)", legendStartX, descTextY);
         g2.drawString("Drone communication lost", descX, descTextY);
 
-        int offlineDroneX = legendStartX + 200;
-        int offlineDroneY = legendStartY + 25 + (legendCellSize * 2);
+        int offlineDroneX = legendStartX + 250;
+        int offlineDroneY = legendStartY + 25 + (legendIconSize * 2);
         g2.setFont(g2.getFont().deriveFont(Font.BOLD));
-        g2.drawString("OFFLINE DRONES", offlineDroneX - 10, offlineDroneY - (legendCellSize) + 15);
+        g2.drawString("OFFLINE DRONES", offlineDroneX - 10, offlineDroneY - (legendIconSize) + 15);
         g2.setFont(g2.getFont().deriveFont(Font.PLAIN));
 
         //Draw Zones from dummy data
