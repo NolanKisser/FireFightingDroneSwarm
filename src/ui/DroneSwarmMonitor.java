@@ -10,8 +10,8 @@ import java.text.SimpleDateFormat;
 
 /**
  * DroneSwarmMonitor class represents User Interface for the Firefighting Drone Swarm.
- * @author Jordan Grewal, Ozan Kaya, Nolan Kisser, Celina Yang
- * @version January 31, 2026
+ * @author Jordan Grewal, Nolan Kisser, Celina Yang
+ * @version April 5, 2026
  */
 
 public class DroneSwarmMonitor extends JFrame {
@@ -25,6 +25,9 @@ public class DroneSwarmMonitor extends JFrame {
     private JSpinner droneCountSpinner;
     private Scheduler scheduler;
 
+    /**
+     * construct DroneSwarmMonitor GUI and initializes formatting and builds UI layout
+     */
     public DroneSwarmMonitor() {
         super("SYSC 3303A: Firefighting Drone Swarm Monitor");
         this.timeFormat = new SimpleDateFormat("HH:mm:ss.SSS");
@@ -32,6 +35,9 @@ public class DroneSwarmMonitor extends JFrame {
         setupUI();
     }
 
+    /**
+     * initializes and lays out interface components
+     */
     private void setupUI() {
         this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         this.setSize(1200, 720);
@@ -167,18 +173,37 @@ public class DroneSwarmMonitor extends JFrame {
         SwingUtilities.invokeLater(() -> activeFiresLabel.setText("Active Fires: " + count));
     }
 
+    /**
+     * add fires to the map
+     * @param zoneID zone of fire
+     */
     public void addActiveFire(int zoneID) {
         mapPanel.addActiveFire(zoneID);
     }
-    
+
+    /**
+     * removes fire from the map
+     * @param zoneID zone of the fire
+     */
     public void removeActiveFire(int zoneID) {
         mapPanel.removeActiveFire(zoneID);
     }
 
+    /**
+     * marks fire as extinguished on the map
+     * @param zoneID zone of the fire
+     */
     public void addExtinguishedFire(int zoneID) {
         mapPanel.addExtinguishedFire(zoneID);
     }
 
+    /**
+     * logs a fault event in the console
+     * @param subsystem subsystem
+     * @param droneID drone ID
+     * @param fault fault type
+     * @param details additional info
+     */
     public void addFaultLog(String subsystem, int droneID, String fault, String details) {
         String timestamp = timeFormat.format(new Date());
         String logEntry = String.format("[%s] %s -> DRONE %d FAULT [%s] %s\n",
@@ -190,6 +215,11 @@ public class DroneSwarmMonitor extends JFrame {
         });
     }
 
+    /**
+     * sets a drone to OFFLINE state in the GUI after short delay
+     * @param droneID drone ID
+     * @param zoneID affected zone ID
+     */
     public void setDroneOffline(int droneID, int zoneID) {
         javax.swing.Timer timer = new javax.swing.Timer(1000, e -> {
             SwingUtilities.invokeLater(() -> {

@@ -9,6 +9,8 @@ import java.time.Instant;
 /**
  * DroneSubsystem class handles the network communication and thread execution
  * for a specific Drone object.
+ * @author Jordan Grewal, Nolan Kisser, Celina Yang
+ * @version April 5, 2026
  */
 public class DroneSubsystem implements Runnable {
 
@@ -30,7 +32,11 @@ public class DroneSubsystem implements Runnable {
     // Hard fault tracking
     private String lastFaultType = null;
 
-
+    /**
+     * constructs a dronesubsystem for managing a single drone
+     * @param scheduler scheduler
+     * @param droneID drone ID
+     */
     public DroneSubsystem(Scheduler scheduler, int droneID) {
         this.scheduler = scheduler;
         this.drone = new Drone(droneID);
@@ -43,6 +49,9 @@ public class DroneSubsystem implements Runnable {
         }
     }
 
+    /**
+     * @param args command-line arguments to specify drone ID
+     */
     public static void main(String[] args) {
         int id = 1;
         if (args.length > 0) {
@@ -59,13 +68,26 @@ public class DroneSubsystem implements Runnable {
         droneThread.start();
     }
 
+    /**
+     * generate timestamp string for logging
+     * @return current local time as string
+     */
     private String ts() { return LocalTime.now().toString(); }
 
+    /**
+     * sends a message to scheduler and waits for response
+     * @param message message to send
+     * @return response from scheduler
+     */
     private String sendAndReceive(String message) {
         sendOnly(message);
         return receiveOnly();
     }
 
+    /**
+     * sends UDP message to scheduler without waiting for response
+     * @param message message to send
+     */
     private void sendOnly(String message) {
         byte[] bytes = message.getBytes();
         try {
@@ -76,6 +98,10 @@ public class DroneSubsystem implements Runnable {
         }
     }
 
+    /**
+     * receives UDP message from scheduler
+     * @return message as string
+     */
     private String receiveOnly() {
         receivePacket = new DatagramPacket(new byte[1024], 1024);
         try {
@@ -88,6 +114,13 @@ public class DroneSubsystem implements Runnable {
         return new String(receivePacket.getData(), 0, receivePacket.getLength()).trim();
     }
 
+    /**
+     * moves and updates drone position
+     * @param targetX target x coordinate
+     * @param targetY target y coordinate
+     * @param speed movement speed (loade or unloaded)
+     * @throws InterruptedException
+     */
     private void moveToTargetStepByStep(double targetX, double targetY, double speed) throws InterruptedException {
         double stepDistance = 100.0;
 
@@ -106,10 +139,13 @@ public class DroneSubsystem implements Runnable {
             double diffX = targetX - drone.getX();
             double diffY = targetY - drone.getY();
 
+            // moving x axis
             if (Math.abs(diffX) > 0) {
                 double step = Math.min(stepDistance, Math.abs(diffX));
                 drone.setLocation(drone.getX() + (Math.signum(diffX) * step), drone.getY());
                 Thread.sleep((long) ((step / speed) * 10));
+
+            // moving y axis
             } else if (Math.abs(diffY) > 0) {
                 double step = Math.min(stepDistance, Math.abs(diffY));
                 drone.setLocation(drone.getX(), drone.getY() + (Math.signum(diffY) * step));
@@ -121,6 +157,10 @@ public class DroneSubsystem implements Runnable {
         }
     }
 
+    /**
+     * handles drone events
+     * @throws InterruptedException
+     */
     private synchronized void handleEvent() throws InterruptedException {
         switch (drone.getState()) {
             case IDLE:
@@ -417,9 +457,11 @@ public class DroneSubsystem implements Runnable {
         }
     }
 
+    /**
+     * @return drone state
+     */
     public Drone.DroneState getState() {
         return drone.getState();
     }
-    public FireEvent getCurrentMission() { return drone.getCurrentMission(); }
-    public double getAgentLevel() { return drone.getAgentLevel(); }
+
 }

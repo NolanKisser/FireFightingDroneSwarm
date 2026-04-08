@@ -4,8 +4,8 @@ package model;
 /**
  * FireEvent class represents a fire event as a Java object passed between the FireIncidentSubsystem,
  * DroneSubsystem, and Scheduler to avoid passing text strings.
- * @author Jordan Grewal, Ozan Kaya, Nolan Kisser, Celina Yang
- * @version January 31, 2026
+ * @author Jordan Grewal, Nolan Kisser, Celina Yang
+ * @version March 28, 2026
  */
 public class FireEvent {
 

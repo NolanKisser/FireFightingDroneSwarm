@@ -14,13 +14,16 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * ZoneMap class represents Zones for the Firefighting Drone Swarm.
- * @author Jordan Grewal, Ozan Kaya, Nolan Kisser, Celina Yang
- * @version January 31, 2026
+ * @author Jordan Grewal, Nolan Kisser, Celina Yang
+ * @version April 5, 2026
  */
-
 public class ZoneMap extends JPanel {
     private final List<Zone> zones = new ArrayList<>();
 
+    /**
+     * loading zones from csv file
+     * @param zoneFilePath
+     */
     public void loadZonesCSV(String zoneFilePath) {
         zones.clear();
         try (BufferedReader br = new BufferedReader(new FileReader(zoneFilePath))) {
@@ -43,16 +46,24 @@ public class ZoneMap extends JPanel {
         repaint();
     }
 
+    /**
+     * stores rending information for each drone
+     */
     private static class DroneRenderInfo {
         double x, y;
         String state;
         String fault;
     }
-    
+
+    // tracking drones, active fires, and extinguished fires
     private final Map<Integer, DroneRenderInfo> drones = new ConcurrentHashMap<>();
     private final Map<Integer, Integer> activeFires = new ConcurrentHashMap<>();
     private final java.util.Set<Integer> extinguishedFires = ConcurrentHashMap.newKeySet();
 
+    /**
+     * adds active fire to a zone
+     * @param zoneID zone of fire
+     */
     public void addActiveFire(int zoneID) {
         // Increment the count of fires for this zone
         activeFires.put(zoneID, activeFires.getOrDefault(zoneID, 0) + 1);
@@ -60,6 +71,10 @@ public class ZoneMap extends JPanel {
         repaint();
     }
 
+    /**
+     * remove an active fire from a zone
+     * @param zoneID zone of fire
+     */
     public void removeActiveFire(int zoneID) {
         // Decrement the active fire count safely
         int count = activeFires.getOrDefault(zoneID, 0);
@@ -69,6 +84,10 @@ public class ZoneMap extends JPanel {
         repaint();
     }
 
+    /**
+     * mark a fire as extinguished
+     * @param zoneID zone of fire
+     */
     public void addExtinguishedFire(int zoneID) {
         // Decrement the active fire count
         int count = activeFires.getOrDefault(zoneID, 0);
@@ -83,6 +102,14 @@ public class ZoneMap extends JPanel {
         repaint();
     }
 
+    /**
+     * updates drone position and rendering state
+     * @param id drone ID
+     * @param x x coordinate
+     * @param y y coordinate
+     * @param state drone state
+     * @param fault fault type
+     */
     public void updateDrone(int id, double x, double y, String state, String fault) {
         DroneRenderInfo info = drones.computeIfAbsent(id, k -> new DroneRenderInfo());
         info.x = x;
@@ -92,11 +119,18 @@ public class ZoneMap extends JPanel {
         repaint();
     }
 
+    /**
+     * construct zonemap panel
+     */
     public ZoneMap() {
         this.setBackground(Color.WHITE);
         loadZonesCSV("Final_zone_file_w26.csv");
     }
 
+    /**
+     * renders grid, zones, fires, drones, legend
+     * @param g the <code>Graphics</code> object to protect
+     */
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);

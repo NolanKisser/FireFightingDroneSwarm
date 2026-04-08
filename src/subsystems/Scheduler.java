@@ -20,7 +20,7 @@ import java.util.Queue;
  * Scheduler class communicates and synchronizes the FireIncidentSubsystem and the DroneSubsystem.
  * Updated to use an active switch state machine.
  * @author Jordan Grewal, Nolan Kisser, Celina Yang
- * @version March 15, 2026
+ * @version April 5, 2026
  */
 public class Scheduler implements Runnable {
 

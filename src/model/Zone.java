@@ -5,7 +5,7 @@ package model;
  * Zone class represents the different zones within the simulation. Each zone is defined with two
  * coordinates, the start point (x1,y1) and the end point (x2,y2). The center point of the zone is
  * computed for the drone's to service a fire within the designated zone.
- * @author Jordan Grewal, Ozan Kaya, Nolan Kisser, Celina Yang
+ * @author Jordan Grewal, Nolan Kisser, Celina Yang
  * @version January 31, 2026
  */
 public class Zone {
